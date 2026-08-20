@@ -2,6 +2,7 @@
 *.d
 *.a
 *.so
+__pycache__/
 bison/*.c
 bison/*.h
 flex/*.c
@@ -10,6 +11,9 @@ bin/3D-ICE-Client
 bin/3D-ICE-Emulator
 bin/3D-ICE-Server
 test/VariablePowerTrace
+test/example3_dt/outputs/
+test/example3_dt/xaxis.txt
+test/example3_dt/yaxis.txt
 bin/*.txt
 SuperLU_4.3/
 heatsink_plugin/templates/Modelica/Heatsink.TestHeatsink_Interface3DICE/

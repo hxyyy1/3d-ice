@@ -40,6 +40,8 @@
 
 include $(3DICE_MAIN)/makefile.def
 
+.PHONY: all plugintest example3dttest hotspotcompare steadyresultstest runtest clean
+
 all: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures VariablePowerTrace runtest
 
 CINCLUDES := $(CINCLUDES) -I$(SLU_INCLUDE)
@@ -68,7 +70,16 @@ VariablePowerTrace: VariablePowerTrace.o
 plugintest:
 	cd plugin; make
 
-runtest: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures VariablePowerTrace plugintest ../bin/3D-ICE-Emulator
+example3dttest: ../bin/3D-ICE-Server
+	bash example3_dt/run.sh
+
+hotspotcompare: example3dttest ../bin/3D-ICE-Emulator
+	bash example3_dt/compare_hotspot.sh
+
+steadyresultstest: ../bin/3D-ICE-Emulator
+	bash example3_dt/run_standard_steady.sh
+
+runtest: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures VariablePowerTrace plugintest example3dttest steadyresultstest ../bin/3D-ICE-Emulator
 	@echo ""
 	@echo "Variable-duration power trace ...."
 	@echo "----------------------------------"

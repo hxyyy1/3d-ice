@@ -74,6 +74,53 @@ bin/3D-ICE-Client 127.0.0.1 10000 power.ptrace
 `--follow` and the optional all-minus-one sentinel mode remain available for
 streaming traces. Headerless numeric traces remain backward compatible.
 
+A complete two-die fixed-versus-variable trace example adapted from HotSpot is
+available in [`test/example3_dt`](test/example3_dt/README.md). Run it with:
+
+```bash
+make -C test example3dttest
+```
+
+To compare the replicated 64×64 top active layer against a sibling HotSpot
+`example3` result at the same timestamp, run:
+
+```bash
+make -C test hotspotcompare
+```
+
+This exports aligned HotSpot, 3D-ICE, and signed-difference panels plus a JSON
+report containing all-cell bias, MAE, RMSE, maximum error, and correlation.
+
+## Standardized steady-result bundle
+
+Run a steady stack and create a HotSpot-style output bundle below
+`OUTPUT_DIR/thermal/results/`:
+
+```bash
+python3 utils/thermal/run_steady.py \
+  --stack test/example3_dt/example_steady.stk \
+  --output-dir trace_output
+```
+
+The bundle contains `temperature.steady`, `temperature_grid.steady`,
+`temperature_steady.tsv`, `hotspot_steady.log`, `thermal_summary.json`, and
+`heatmaps/steady_layer_*.{png,svg}`. Raw files contain 3D-ICE results; the compatibility
+log name does not imply that HotSpot was executed. `--phase prefill|decode`
+adds the corresponding filename suffix.
+
+The example automatically generates HotSpot-like thermal maps. The reusable
+Python plotter accepts one result or multiple comparison panels and exports
+PNG and editable SVG files:
+
+```bash
+python3 utils/plot/plot_temperature_map.py \
+  --floorplan test/example3_dt/floorplan2.flp \
+  --temperature-map test/example3_dt/outputs/dt/top_tmap.txt \
+  --time-source test/example3_dt/outputs/dt/top_temperature.txt \
+  --label "Variable dt" \
+  --output test/example3_dt/outputs/dt/top_temperature_final
+```
+
 We are constantly looking for your feedback and comments in our strive to improve 3D-ICE. Please send your emails to 3d-ice@listes.epfl.ch. You must subscribe to this mailing list in order to be able to communicate with us and also receive notifications about new releases and updates on new patches, bugs, etc. Notifications will be kept as limited and as brief as possible and THERE WILL BE NO SPAMMING of your mailbox. In addition, this mailing list will serve as a forum where you can interact with other users of 3D-ICE.
 
 ## Citation

@@ -1,0 +1,89 @@
+L2_left :
+  position 0, 9800 ;
+  dimension 4900, 6200 ;
+  power values 1.2015 ;
+
+L2 :
+  position 0, 0 ;
+  dimension 16000, 9800 ;
+  power values 6.145 ;
+
+L2_right :
+  position 11100, 9800 ;
+  dimension 4900, 6200 ;
+  power values 1.2015 ;
+
+Icache :
+  position 4900, 9800 ;
+  dimension 3100, 2600 ;
+  power values 6.835 ;
+
+Dcache :
+  position 8000, 9800 ;
+  dimension 3100, 2600 ;
+  power values 11.605 ;
+
+Bpred :
+  position 4900, 12400 ;
+  dimension 3100, 700 ;
+  power values 3.73 ;
+
+DTB :
+  position 8000, 12400 ;
+  dimension 3100, 700 ;
+  power values 0.145 ;
+
+FPAdd :
+  position 4900, 13100 ;
+  dimension 2200, 900 ;
+  power values 1.0335 ;
+
+FPReg :
+  position 4900, 14000 ;
+  dimension 2200, 380 ;
+  power values 0.6445 ;
+
+FPMul :
+  position 4900, 14380 ;
+  dimension 2200, 950 ;
+  power values 1.1075 ;
+
+FPMap :
+  position 4900, 15330 ;
+  dimension 2200, 670 ;
+  power values 0.04195 ;
+
+IntMap :
+  position 7100, 14650 ;
+  dimension 900, 1350 ;
+  power values 0.8815 ;
+
+IntQ :
+  position 8000, 14650 ;
+  dimension 1300, 1350 ;
+  power values 0.301 ;
+
+IntReg :
+  position 9300, 15330 ;
+  dimension 1800, 670 ;
+  power values 4.225 ;
+
+IntExec :
+  position 9300, 13100 ;
+  dimension 1800, 2230 ;
+  power values 6.34 ;
+
+FPQ :
+  position 7100, 13100 ;
+  dimension 900, 1550 ;
+  power values 0.02945 ;
+
+LdStQ :
+  position 8000, 13700 ;
+  dimension 1300, 950 ;
+  power values 2.81 ;
+
+ITB :
+  position 8000, 13100 ;
+  dimension 1300, 600 ;
+  power values 0.329 ;

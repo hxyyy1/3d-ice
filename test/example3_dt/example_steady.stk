@@ -1,0 +1,31 @@
+material SILICON :
+  thermal conductivity 1.30e-4 ;
+  volumetric heat capacity 1.75e-12 ;
+
+material TIM :
+  thermal conductivity 4.0e-6 ;
+  volumetric heat capacity 4.0e-12 ;
+
+top heat sink :
+  heat transfer coefficient 3.90625e-8 ;
+  temperature 318.15 ;
+
+dimensions :
+  chip length 16000, width 16000 ;
+  cell length 250, width 250 ;
+
+die POWER_DIE :
+  layer 20 TIM ;
+  source 150 SILICON ;
+
+stack:
+  die TOP_DIE POWER_DIE floorplan "floorplan2_steady.flp" ;
+  die BOTTOM_DIE POWER_DIE floorplan "floorplan1_steady.flp" ;
+
+solver:
+  steady ;
+  initial temperature 318.15 ;
+
+output:
+  Tflp(TOP_DIE, "outputs/hotspot_comparison/three_dice_steady_top_temperature.txt", average, final);
+  Tmap(TOP_DIE, "outputs/hotspot_comparison/three_dice_layer2.grid.steady", final);

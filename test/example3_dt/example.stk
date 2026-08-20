@@ -1,0 +1,34 @@
+material SILICON :
+  thermal conductivity 1.30e-4 ;
+  volumetric heat capacity 1.75e-12 ;
+
+material TIM :
+  thermal conductivity 4.0e-6 ;
+  volumetric heat capacity 4.0e-12 ;
+
+top heat sink :
+  // Equivalent total convection conductance: 1 / 0.1 K/W = 10 W/K.
+  heat transfer coefficient 3.90625e-8 ;
+  temperature 318.15 ;
+
+dimensions :
+  chip length 16000, width 16000 ;
+  cell length 250, width 250 ;
+
+die POWER_DIE :
+  layer 20 TIM ;
+  source 150 SILICON ;
+
+stack:
+  die TOP_DIE POWER_DIE floorplan "floorplan2.flp" ;
+  die BOTTOM_DIE POWER_DIE floorplan "floorplan1.flp" ;
+
+solver:
+  transient step 0.005, slot 0.01 ;
+  initial temperature 318.15 ;
+
+output:
+  Tflp(BOTTOM_DIE, "bottom_temperature.txt", average, slot);
+  Tflp(TOP_DIE, "top_temperature.txt", average, slot);
+  Tmap(BOTTOM_DIE, "bottom_tmap.txt", slot);
+  Tmap(TOP_DIE, "top_tmap.txt", slot);

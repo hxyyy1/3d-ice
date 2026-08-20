@@ -1,0 +1,14 @@
+Unit1 :
+  position 0, 8000 ;
+  dimension 8000, 8000 ;
+  power values 10.0 ;
+
+Unit2 :
+  position 0, 0 ;
+  dimension 16000, 8000 ;
+  power values 25.0 ;
+
+Unit3 :
+  position 8000, 8000 ;
+  dimension 8000, 8000 ;
+  power values 15.0 ;
