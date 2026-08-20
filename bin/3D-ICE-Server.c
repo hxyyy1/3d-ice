@@ -49,6 +49,7 @@
 #include "thermal_data.h"
 #include "analysis.h"
 #include "output.h"
+#include "power_trace.h"
 #include "powers_queue.h"
 
 #define MAX_OUTPUT_FILES_TO_TRANSFER 1024u
@@ -67,6 +68,7 @@ typedef struct
     char        *stk_file ;
     Quantity_t   server_port ;
     char        *power_trace_file ;
+    char        *output_dir ;
     int          follow_power_trace ;
     int          terminate_on_sentinel ;
     unsigned int poll_seconds ;
@@ -294,14 +296,16 @@ static Error_t write_output_instant
         (output, dimensions,
          tdata->Temperatures, tdata->PowerGrid.Sources,
          get_simulated_time (analysis), analysis->CurrentTime,
-         analysis->SlotLength, instant) ;
+         analysis->CurrentSlot, instant) ;
 }
 
 static void print_usage (char *exe_name)
 {
-    fprintf (stderr, "Usage: \"%s file.stk server_port\"\n", exe_name) ;
     fprintf (stderr,
-        "       \"%s file.stk --power-trace trace.txt --until-minus-one [--follow] [--poll seconds]\"\n",
+        "Usage: \"%s file.stk server_port [--output-dir directory]\"\n",
+        exe_name) ;
+    fprintf (stderr,
+        "       \"%s file.stk --power-trace trace.txt [--output-dir directory] [--until-minus-one] [--follow] [--poll seconds]\"\n",
         exe_name) ;
 }
 
@@ -327,6 +331,7 @@ static void server_options_init (ServerOptions_t *options)
     options->stk_file              = NULL ;
     options->server_port           = 0u ;
     options->power_trace_file      = NULL ;
+    options->output_dir            = NULL ;
     options->follow_power_trace    = 0 ;
     options->terminate_on_sentinel = 0 ;
     options->poll_seconds          = DEFAULT_POWER_TRACE_POLL_SECONDS ;
@@ -352,19 +357,34 @@ static Error_t parse_server_options
 
     options->stk_file = argv [1] ;
 
-    if (argc == 3 && argv [2][0] != '-')
+    if (argv [2][0] != '-')
     {
         options->mode        = SERVER_MODE_SOCKET ;
         options->server_port = (Quantity_t) atoi (argv [2]) ;
-
-        return TDICE_SUCCESS ;
+        arg_index = 3 ;
+    }
+    else
+    {
+        options->mode = SERVER_MODE_LOCAL_TRACE ;
+        arg_index = 2 ;
     }
 
-    options->mode = SERVER_MODE_LOCAL_TRACE ;
-
-    for (arg_index = 2 ; arg_index != argc ; arg_index++)
+    for ( ; arg_index != argc ; arg_index++)
     {
-        if (strcmp (argv [arg_index], "--power-trace") == 0)
+        if (strcmp (argv [arg_index], "--output-dir") == 0)
+        {
+            if (++arg_index == argc || argv [arg_index][0] == '\0')
+            {
+                fprintf (stderr, "--output-dir requires a directory path\n") ;
+                print_usage (argv [0]) ;
+
+                return TDICE_FAILURE ;
+            }
+
+            options->output_dir = argv [arg_index] ;
+        }
+        else if (options->mode == SERVER_MODE_LOCAL_TRACE &&
+                 strcmp (argv [arg_index], "--power-trace") == 0)
         {
             if (++arg_index == argc)
             {
@@ -376,15 +396,18 @@ static Error_t parse_server_options
 
             options->power_trace_file = argv [arg_index] ;
         }
-        else if (strcmp (argv [arg_index], "--follow") == 0)
+        else if (options->mode == SERVER_MODE_LOCAL_TRACE &&
+                 strcmp (argv [arg_index], "--follow") == 0)
         {
             options->follow_power_trace = 1 ;
         }
-        else if (strcmp (argv [arg_index], "--until-minus-one") == 0)
+        else if (options->mode == SERVER_MODE_LOCAL_TRACE &&
+                 strcmp (argv [arg_index], "--until-minus-one") == 0)
         {
             options->terminate_on_sentinel = 1 ;
         }
-        else if (strcmp (argv [arg_index], "--poll") == 0)
+        else if (options->mode == SERVER_MODE_LOCAL_TRACE &&
+                 strcmp (argv [arg_index], "--poll") == 0)
         {
             if (++arg_index == argc || is_positive_integer (argv [arg_index]) == 0)
             {
@@ -413,17 +436,10 @@ static Error_t parse_server_options
         }
     }
 
-    if (options->power_trace_file == NULL)
+    if (options->mode == SERVER_MODE_LOCAL_TRACE &&
+        options->power_trace_file == NULL)
     {
         fprintf (stderr, "local server mode requires --power-trace\n") ;
-        print_usage (argv [0]) ;
-
-        return TDICE_FAILURE ;
-    }
-
-    if (options->terminate_on_sentinel == 0)
-    {
-        fprintf (stderr, "local server mode requires --until-minus-one\n") ;
         print_usage (argv [0]) ;
 
         return TDICE_FAILURE ;
@@ -479,54 +495,6 @@ static SimResult_t simulate_slot_and_write_output
     }
 
     return result ;
-}
-
-static Error_t read_power_trace_value
-(
-    FILE        *power_trace,
-    int          follow_power_trace,
-    Quantity_t   slot_index,
-    Quantity_t   value_index,
-    unsigned int poll_seconds,
-    float       *power
-)
-{
-    int waiting = 0 ;
-
-    for ( ; ; )
-    {
-        int result = fscanf (power_trace, "%f", power) ;
-
-        if (result == 1)
-
-            return TDICE_SUCCESS ;
-
-        if (result == EOF && follow_power_trace != 0)
-        {
-            if (waiting == 0)
-            {
-                fprintf (stdout,
-                    "Waiting for power trace values for slot %u, element %u ...\n",
-                    (unsigned int) slot_index,
-                    (unsigned int) value_index) ;
-                fflush (stdout) ;
-
-                waiting = 1 ;
-            }
-
-            clearerr (power_trace) ;
-            sleep (poll_seconds) ;
-
-            continue ;
-        }
-
-        fprintf (stderr,
-            "Cannot read power trace value for slot %u, element %u\n",
-            (unsigned int) slot_index,
-            (unsigned int) value_index) ;
-
-        return TDICE_FAILURE ;
-    }
 }
 
 static FILE *open_power_trace_file
@@ -613,11 +581,11 @@ static Error_t run_local_power_trace_mode
 )
 {
     FILE       *power_trace ;
+    PowerTrace_t trace ;
     float      *powers ;
     Quantity_t  nflpel ;
     Quantity_t  slot_index ;
     Quantity_t  slot_counter = 0u ;
-    Quantity_t  index ;
     Error_t     error ;
 
     fprintf (stdout, "Running local power trace mode.\n") ;
@@ -652,25 +620,38 @@ static Error_t run_local_power_trace_mode
         return TDICE_FAILURE ;
     }
 
+    if (power_trace_init
+        (&trace, power_trace, nflpel, options->follow_power_trace,
+         options->poll_seconds) != TDICE_SUCCESS)
+    {
+        free (powers) ;
+        fclose (power_trace) ;
+
+        return TDICE_FAILURE ;
+    }
+
     for (slot_index = 0u ; ; slot_index++)
     {
         SimResult_t result ;
+        PowerTraceReadResult_t read_result ;
+        Time_t slot_time ;
 
-        for (index = 0u ; index != nflpel ; index++)
+        read_result = power_trace_read_slot (&trace, &slot_time, powers) ;
+
+        if (read_result == TDICE_POWER_TRACE_READ_END)
         {
-            if (read_power_trace_value
-                (power_trace,
-                 options->follow_power_trace,
-                 slot_index,
-                 index,
-                 options->poll_seconds,
-                 &powers [index]) != TDICE_SUCCESS)
-            {
-                free (powers) ;
-                fclose (power_trace) ;
+            fprintf (stdout, "End of power trace after %u slots.\n",
+                (unsigned int) slot_index) ;
 
-                return TDICE_FAILURE ;
-            }
+            break ;
+        }
+
+        if (read_result == TDICE_POWER_TRACE_READ_ERROR)
+        {
+            free (powers) ;
+            fclose (power_trace) ;
+
+            return TDICE_FAILURE ;
         }
 
         if (options->terminate_on_sentinel != 0 &&
@@ -681,6 +662,20 @@ static Error_t run_local_power_trace_mode
                 (unsigned int) slot_index) ;
 
             break ;
+        }
+
+        if (power_trace_has_variable_slot_time (&trace) == true &&
+            thermal_data_set_variable_step
+            (tdata, stkd->Dimensions, analysis, slot_time) != TDICE_SUCCESS)
+        {
+            fprintf (stderr,
+                "Cannot configure dt %.12g in power trace slot %u; dt must be "
+                "finite and greater than zero\n",
+                slot_time, (unsigned int) slot_index) ;
+            free (powers) ;
+            fclose (power_trace) ;
+
+            return TDICE_FAILURE ;
         }
 
         error = insert_power_values_from_array (tdata, nflpel, powers) ;
@@ -758,6 +753,15 @@ int main (int argc, char** argv)
     if (analysis.AnalysisType != TDICE_ANALYSIS_TYPE_TRANSIENT)
     {
         fprintf (stderr, "only transient analysis!\n") ;
+
+        goto wrong_analysis_error ;
+    }
+
+    if (options.output_dir != NULL &&
+        output_set_directory (&output, options.output_dir) != TDICE_SUCCESS)
+    {
+        fprintf (stderr, "cannot configure output directory %s\n",
+            options.output_dir) ;
 
         goto wrong_analysis_error ;
     }
@@ -984,7 +988,7 @@ int main (int argc, char** argv)
                     (&output, stkd.Dimensions,
                      tdata.Temperatures, tdata.PowerGrid.Sources,
                      get_simulated_time (&analysis), analysis.CurrentTime, 
-                     analysis.SlotLength, instant) ;
+                     analysis.CurrentSlot, instant) ;
 
                 break ;
             }
@@ -1049,6 +1053,66 @@ int main (int argc, char** argv)
 
                     slot_counter = 0 ;
                 }
+
+                break ;
+            }
+
+        /**********************************************************************/
+
+            case TDICE_SIMULATE_SLOT_WITH_DURATION :
+            {
+                Time_t slot_time = 0.0 ;
+                SimResult_t result ;
+                Quantity_t payload_bytes =
+                    (*request.Length > 2u ? *request.Length - 2u : 0u) *
+                    sizeof (MessageWord_t) ;
+
+                if (payload_bytes >= sizeof (slot_time))
+
+                    memcpy (&slot_time, request.Content, sizeof (slot_time)) ;
+
+                network_message_init (&reply) ;
+                build_message_head
+                    (&reply, TDICE_SIMULATE_SLOT_WITH_DURATION) ;
+
+                if (payload_bytes < sizeof (slot_time) ||
+                    thermal_data_set_variable_step
+                    (&tdata, stkd.Dimensions, &analysis,
+                     slot_time) != TDICE_SUCCESS)
+                {
+                    fprintf (stderr,
+                        "Cannot configure variable slot duration %.12g; dt must "
+                        "be finite and greater than zero\n",
+                        slot_time) ;
+                    result = TDICE_WRONG_CONFIG ;
+                }
+                else
+                {
+                    result = emulate_slot
+                        (&tdata, stkd.Dimensions, &analysis) ;
+                }
+
+                insert_message_word (&reply, &result) ;
+                send_message_to_socket (&client_socket, &reply) ;
+                network_message_destroy (&reply) ;
+
+                if (result == TDICE_END_OF_SIMULATION)
+                {
+                    network_message_destroy (&request) ;
+
+                    goto quit ;
+                }
+                else if (result != TDICE_SLOT_DONE &&
+                         result != TDICE_WRONG_CONFIG)
+                {
+                    fprintf (stderr, "error %d: emulate variable slot\n", result) ;
+
+                    goto sim_error ;
+                }
+
+                if (result == TDICE_SLOT_DONE)
+
+                    print_slot_progress (&analysis, &slot_counter) ;
 
                 break ;
             }

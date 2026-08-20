@@ -174,10 +174,11 @@ int main(int argc, char** argv)
         if (sim_result == TDICE_STEP_DONE || sim_result == TDICE_SLOT_DONE)
         {
             // New output part 2/2
-            time_cur = (analysis.CurrentTime % analysis.SlotLength)*scale_factor;
-            if (analysis.CurrentTime % analysis.SlotLength == 0)
+            time_cur = analysis.CurrentSlotStep * scale_factor;
+            if (sim_result == TDICE_SLOT_DONE)
                  time_cur = bar_len;
-            slot_cur = (analysis.CurrentTime-1) / analysis.SlotLength + 1;
+            slot_cur = analysis.CurrentSlot +
+                (sim_result == TDICE_SLOT_DONE ? 0u : 1u) ;
             fprintf(stderr, "Time slot %d: |%.*s>%.*s| %.3fs\r", slot_cur, time_cur, s1, bar_len-time_cur, s2, analysis.CurrentTime*analysis.StepTime);
             fflush(stderr);  //< Flush the output (just in case)
 
@@ -190,7 +191,7 @@ int main(int argc, char** argv)
                              tdata.Temperatures, tdata.PowerGrid.Sources,
                              get_simulated_time (&analysis),
                              analysis.CurrentTime,
-                             analysis.SlotLength,
+                             analysis.CurrentSlot,
                              TDICE_OUTPUT_INSTANT_STEP) ;
         }
 
@@ -202,7 +203,7 @@ int main(int argc, char** argv)
                              tdata.Temperatures, tdata.PowerGrid.Sources,
                              get_simulated_time (&analysis),
                              analysis.CurrentTime,
-                             analysis.SlotLength,
+                             analysis.CurrentSlot,
                              TDICE_OUTPUT_INSTANT_SLOT) ;
         }
 
@@ -212,7 +213,7 @@ int main(int argc, char** argv)
                      tdata.Temperatures, tdata.PowerGrid.Sources,
                      get_simulated_time (&analysis),
                      analysis.CurrentTime,
-                     analysis.SlotLength,
+                     analysis.CurrentSlot,
                      TDICE_OUTPUT_INSTANT_FINAL) ;
 
     /// Present time consumption for test

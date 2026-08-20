@@ -40,7 +40,7 @@
 
 include $(3DICE_MAIN)/makefile.def
 
-all: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures runtest
+all: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures VariablePowerTrace runtest
 
 CINCLUDES := $(CINCLUDES) -I$(SLU_INCLUDE)
 CLIBS = $(3DICE_LIB_A) $(SLU_LIBS) -lm -ldl
@@ -60,10 +60,19 @@ CompareSystemMatrix: CompareSystemMatrix.o
 CompareTemperatures: CompareTemperatures.o
 	$(CC) $(CFLAGS) $< $(CLIBS) -o $@
 
+-include VariablePowerTrace.d
+
+VariablePowerTrace: VariablePowerTrace.o
+	$(CC) $(CFLAGS) $< $(CLIBS) -o $@
+
 plugintest:
 	cd plugin; make
 
-runtest: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures plugintest ../bin/3D-ICE-Emulator
+runtest: GenerateSystemMatrix CompareSystemMatrix CompareTemperatures VariablePowerTrace plugintest ../bin/3D-ICE-Emulator
+	@echo ""
+	@echo "Variable-duration power trace ...."
+	@echo "----------------------------------"
+	@./VariablePowerTrace
 	@echo ""
 	@echo "Comparison of system matrices ...."
 	@echo "----------------------------------"
@@ -187,6 +196,7 @@ clean:
 	@$(RM) $(RMFLAGS) GenerateSystemMatrix GenerateSystemMatrix.o GenerateSystemMatrix.d
 	@$(RM) $(RMFLAGS) CompareSystemMatrix  CompareSystemMatrix.o  CompareSystemMatrix.d
 	@$(RM) $(RMFLAGS) CompareTemperatures  CompareTemperatures.o  CompareTemperatures.d
+	@$(RM) $(RMFLAGS) VariablePowerTrace   VariablePowerTrace.o   VariablePowerTrace.d
 	@$(RM) $(RMFLAGS) tr_topsink.txt tr_bottomsink.txt tr_bothsink.txt
 	@$(RM) $(RMFLAGS) st_topsink.txt st_bottomsink.txt st_bothsink.txt
 	@$(RM) $(RMFLAGS) tr_solid.txt tr_4rm.txt tr_pf.txt tr_2rm.txt

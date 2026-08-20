@@ -292,7 +292,7 @@ void print_thermal_map_3D
     Dimensions_t    *dimensions,
     Temperature_t   *temperatures,
     Quantity_t      timestep_index,
-    Quantity_t      slotlength,
+    Quantity_t      slot_index,
     String_t        filename,
     OutputInstant_t instant 
 )
@@ -301,33 +301,30 @@ void print_thermal_map_3D
     if (dimensions->NonUniform == 1)
     {
         // write the tmap vtk file in the non-uniform scenario
-        char newname[50];
-        strcpy(newname, filename);
+        size_t name_capacity = strlen (filename) + 32u ;
+        char *newname = (char *) malloc (name_capacity) ;
+
+        if (newname == NULL)
+
+            return ;
+
+        strcpy (newname, filename) ;
 
         if (instant == TDICE_OUTPUT_INSTANT_SLOT)
         {
-            timestep_index /= slotlength;
+            timestep_index = slot_index;
         }
 
         if (instant != TDICE_OUTPUT_INSTANT_FINAL)
         {
-            // Determine the length of the string
-            Quantity_t len = strlen(newname);
-            // Remove the origin ".vtk"
-            for (Quantity_t i = 0; i < len; i++)
-            {
-                if (newname[i] == '.')
-                {
-                    newname[i] = '\0';
-                }
-            }
+            char *extension = strrchr (newname, '.') ;
 
-            char index [10];
-            // Convert the uint32_t to a string
-            sprintf(index, "%u", timestep_index);
+            if (extension != NULL)
 
-            strcat(newname, index);
-            strcat(newname, ".vtk");
+                *extension = '\0' ;
+
+            snprintf (newname + strlen (newname),
+                name_capacity - strlen (newname), "%u.vtk", timestep_index) ;
         }
        
 
@@ -335,6 +332,9 @@ void print_thermal_map_3D
         if (filevtk == NULL)
         {
             fprintf (stderr, "Cannot create vtk file in the non-uniform scenario\n") ;
+            free (newname) ;
+
+            return ;
         }
         //output head information for vtk
         fprintf (filevtk, "# vtk DataFile Version 3.0\n");
@@ -405,6 +405,7 @@ void print_thermal_map_3D
         }
         fprintf (filevtk, "\n") ;
         fclose (filevtk) ;
+        free (newname) ;
     }
 
 }

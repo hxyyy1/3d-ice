@@ -206,6 +206,29 @@ extern "C"
         MaterialList_t     *materials
     ) ;
 
+    /*! Configures one variable-duration transient step
+     *
+     * If \a step_time differs from the current step, the system matrix is
+     * rebuilt and factorized without changing the current thermal state.
+     * Every configured variable-duration slot contains exactly one solve.
+     *
+     * \param tdata       thermal simulation data
+     * \param dimensions stack dimensions
+     * \param analysis   transient analysis state
+     * \param step_time  duration of the next step, in seconds
+     *
+     * \return \c TDICE_SUCCESS if the step and matrix were configured
+     * \return \c TDICE_FAILURE otherwise
+     */
+
+    Error_t thermal_data_set_variable_step
+    (
+        ThermalData_t *tdata,
+        Dimensions_t  *dimensions,
+        Analysis_t    *analysis,
+        Time_t         step_time
+    ) ;
+
     /*! Set the number of cores for non-uniform and superlu_mt
      *
      * \param analysis   the address of the Analysis structure

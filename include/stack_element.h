@@ -269,7 +269,7 @@ extern "C"
      * \param dimensions      pointer to the structure storing the dimensions
      * \param temperatures    pointer to the first element of the temparature array
      * \param timestep_index  the time of simulation
-     * \param slotlength      slot time divided by step time
+     * \param slot_index      index of the current simulation slot
      * \param filename        name of file
      * \param instant         step/slot/final
      */
@@ -279,7 +279,7 @@ extern "C"
         Dimensions_t    *dimensions,
         Temperature_t   *temperatures,
         Quantity_t      timestep_index,
-        Quantity_t      slotlength,
+        Quantity_t      slot_index,
         String_t        filename,
         OutputInstant_t instant 
     );

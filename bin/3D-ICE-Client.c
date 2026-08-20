@@ -44,6 +44,7 @@
 
 #include "network_socket.h"
 #include "network_message.h"
+#include "power_trace.h"
 
 void seed_random ()
 {
@@ -71,6 +72,27 @@ void seed_random ()
 
 #define MAX_SERVER_IP 50
 #define TERMINATION_SENTINEL (-1.0f)
+
+static void insert_message_bytes
+(
+    NetworkMessage_t *message,
+    unsigned char    *bytes,
+    Quantity_t        nbytes
+)
+{
+    Quantity_t index ;
+
+    for (index = 0u ; index < nbytes ; index += sizeof (MessageWord_t))
+    {
+        MessageWord_t word = 0u ;
+        Quantity_t remaining = nbytes - index ;
+        Quantity_t chunk =
+            remaining < sizeof (MessageWord_t) ? remaining : sizeof (MessageWord_t) ;
+
+        memcpy (&word, bytes + index, chunk) ;
+        insert_message_word (message, &word) ;
+    }
+}
 
 static Error_t extract_message_bytes
 (
@@ -286,7 +308,7 @@ static void print_usage (char *exe_name)
         "Usage: \"%s nslots server_ip server_port [power_trace_file [--follow] [--until-minus-one]]\"\n",
         exe_name) ;
     fprintf (stderr,
-        "       \"%s server_ip server_port power_trace_file [--follow] --until-minus-one\"\n",
+        "       \"%s server_ip server_port power_trace_file [--follow] [--until-minus-one]\"\n",
         exe_name) ;
 }
 
@@ -304,53 +326,6 @@ static int is_non_negative_integer (char *value)
     }
 
     return 1 ;
-}
-
-static Error_t read_power_trace_value
-(
-    FILE       *power_trace,
-    int         follow_power_trace,
-    Quantity_t slot_index,
-    Quantity_t value_index,
-    float      *power
-)
-{
-    int waiting = 0 ;
-
-    for ( ; ; )
-    {
-        int result = fscanf (power_trace, "%f", power) ;
-
-        if (result == 1)
-
-            return TDICE_SUCCESS ;
-
-        if (result == EOF && follow_power_trace != 0)
-        {
-            if (waiting == 0)
-            {
-                fprintf (stdout,
-                    "Waiting for power trace values for slot %u, element %u ...\n",
-                    (unsigned int) slot_index,
-                    (unsigned int) value_index) ;
-                fflush (stdout) ;
-
-                waiting = 1 ;
-            }
-
-            clearerr (power_trace) ;
-            sleep (1u) ;
-
-            continue ;
-        }
-
-        fprintf (stderr,
-            "Cannot read power trace value for slot %u, element %u\n",
-            (unsigned int) slot_index,
-            (unsigned int) value_index) ;
-
-        return TDICE_FAILURE ;
-    }
 }
 
 int main (int argc, char** argv)
@@ -375,8 +350,10 @@ int main (int argc, char** argv)
     CellIndex_t nrows, ncolumns ;
 
     float power, time, temperature ;
+    Time_t slot_time ;
 
     FILE *tmap, *power_trace ;
+    PowerTrace_t trace ;
 
     int follow_power_trace, terminate_on_sentinel, unlimited_slots, nslots_provided ;
     int option_start_index ;
@@ -434,7 +411,7 @@ int main (int argc, char** argv)
     }
     else
     {
-        if (argc < 5 || argc > 6)
+        if (argc < 4 || argc > 6)
         {
             print_usage (EXE_NAME) ;
 
@@ -499,9 +476,10 @@ int main (int argc, char** argv)
         return EXIT_FAILURE ;
     }
 
-    if (nslots == 0u && terminate_on_sentinel == 0)
+    if (nslots == 0u && power_trace == NULL)
     {
-        fprintf (stderr, "nslots must be positive unless --until-minus-one is used, or omitted with --until-minus-one\n") ;
+        fprintf (stderr,
+            "nslots must be positive when no power trace file is provided\n") ;
 
         if (power_trace != NULL)
 
@@ -510,7 +488,7 @@ int main (int argc, char** argv)
         return EXIT_FAILURE ;
     }
 
-    unlimited_slots = (nslots == 0u && terminate_on_sentinel != 0) ;
+    unlimited_slots = (nslots == 0u && power_trace != NULL) ;
 
     /* Creates socket *********************************************************/
 
@@ -555,9 +533,75 @@ int main (int argc, char** argv)
 
     network_message_destroy (&client_nflp) ;
 
+    if (nflpel == 0u)
+    {
+        fprintf (stderr, "Server stack has no floorplan elements\n") ;
+        fclose (tmap) ;
+        if (power_trace != NULL)
+            fclose (power_trace) ;
+        socket_close (&client_socket) ;
+
+        return EXIT_FAILURE ;
+    }
+
+    if (power_trace != NULL &&
+        power_trace_init
+        (&trace, power_trace, nflpel, follow_power_trace, 1u) != TDICE_SUCCESS)
+    {
+        fclose (tmap) ;
+        fclose (power_trace) ;
+        socket_close (&client_socket) ;
+
+        return EXIT_FAILURE ;
+    }
+
     for (slot_index = 0u ; unlimited_slots != 0 || nslots != 0u ; slot_index++)
     {
         int termination_slot = (terminate_on_sentinel != 0) ;
+        float powers [nflpel] ;
+
+        slot_time = 0.0 ;
+
+        if (power_trace != NULL)
+        {
+            PowerTraceReadResult_t read_result =
+                power_trace_read_slot (&trace, &slot_time, powers) ;
+
+            if (read_result == TDICE_POWER_TRACE_READ_END)
+            {
+                if (unlimited_slots == 0)
+                {
+                    fprintf (stderr,
+                        "Power trace ended before requested slot %u\n",
+                        (unsigned int) slot_index) ;
+                    fclose (tmap) ;
+                    fclose (power_trace) ;
+                    socket_close (&client_socket) ;
+
+                    return EXIT_FAILURE ;
+                }
+
+                fprintf (stdout, "End of power trace after %u slots.\n",
+                    (unsigned int) slot_index) ;
+
+                break ;
+            }
+
+            if (read_result == TDICE_POWER_TRACE_READ_ERROR)
+            {
+                fclose (tmap) ;
+                fclose (power_trace) ;
+                socket_close (&client_socket) ;
+
+                return EXIT_FAILURE ;
+            }
+        }
+        else
+        {
+            for (index = 0u ; index != nflpel ; index++)
+
+                powers [index] = random_value (0.0, 1.0) ;
+        }
 
         /* client sends power values ******************************************/
 
@@ -567,24 +611,7 @@ int main (int argc, char** argv)
 
         for (index = 0 ; index != nflpel ; index++)
         {
-            if (power_trace != NULL)
-            {
-                if (read_power_trace_value
-                    (power_trace, follow_power_trace, slot_index, index, &power) != TDICE_SUCCESS)
-                {
-                    network_message_destroy (&client_powers) ;
-
-                    fclose (tmap) ;
-                    fclose (power_trace) ;
-                    socket_close (&client_socket) ;
-
-                    return EXIT_FAILURE ;
-                }
-            }
-            else
-            {
-                power = random_value (0.0, 1.0) ;
-            }
+            power = powers [index] ;
 
             if (termination_slot != 0 && power != TERMINATION_SENTINEL)
 
@@ -634,7 +661,20 @@ int main (int argc, char** argv)
         /* client sends request for slot simlation ****************************/
 
         network_message_init (&client_simulate) ;
-        build_message_head   (&client_simulate, TDICE_SIMULATE_SLOT) ;
+
+        if (power_trace != NULL &&
+            power_trace_has_variable_slot_time (&trace) == true)
+        {
+            build_message_head
+                (&client_simulate, TDICE_SIMULATE_SLOT_WITH_DURATION) ;
+            insert_message_bytes
+                (&client_simulate, (unsigned char *) &slot_time,
+                 sizeof (slot_time)) ;
+        }
+        else
+        {
+            build_message_head (&client_simulate, TDICE_SIMULATE_SLOT) ;
+        }
 
         send_message_to_socket (&client_socket, &client_simulate) ;
 

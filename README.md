@@ -7,6 +7,73 @@
 
 To get more information about 3D-ICE, and how to use and install it, please refer to the [3D-ICE_User_Guide](doc/3D-ICE-User_Guide.pdf) in the doc folder. It helps you get started with 3D-ICE and serves as a quick reference later on. Click [here](https://www.epfl.ch/labs/esl/research/open-source-tools/3d-ice/3d-ice-documentation/) if you want to know more about the modeling theory aspects of 3D-ICE.
 
+## Power traces with variable slot durations
+
+The traditional power trace format still uses the fixed `slot` duration from
+the stack file. A trace can optionally provide a header, but its columns must
+remain in 3D-ICE floorplan order (bottom die to top die):
+
+```text
+Core0 Cache0
+10.0  3.0
+12.0  4.2
+```
+
+To give each power row a different duration, make `dt` the first header field
+and add the duration in seconds as the first value of every data row:
+
+```text
+dt     Core0 Cache0
+0.005  10.0  3.0
+0.015  12.0  4.2
+```
+
+Every `dt` must be finite and greater than zero. When `dt` is present, each
+trace row is solved exactly once with `dt` used directly as that transient
+step. If `dt` changes, 3D-ICE rebuilds and factorizes the time-dependent system
+matrix before the solve; adjacent rows with the same `dt` reuse the existing
+factorization. Trace headers are informational and must contain exactly one
+label per floorplan element.
+
+When `dt` is absent, the original fixed `step`/`slot` path is used unchanged:
+each power row remains active for `slot / step` solver steps.
+
+The stack file still requires the existing transient `step`/`slot` declaration
+for configuration compatibility, but those values no longer subdivide rows in
+a `dt` trace. Changing `dt` is currently unsupported with a pluggable heat-sink
+model because its external state is initialized with a fixed step duration.
+
+A finite trace can be run directly; reaching end-of-file ends the simulation:
+
+```bash
+bin/3D-ICE-Server model.stk --power-trace power.ptrace
+```
+
+To place every relative path from the stack `output:` section below one
+directory, use `--output-dir`:
+
+```bash
+bin/3D-ICE-Server model.stk \
+  --power-trace power.ptrace \
+  --output-dir results/run-01
+```
+
+The directory and any required subdirectories are created automatically.
+Relative output paths preserve their structure below this directory; absolute
+paths in the stack file remain unchanged. Without `--output-dir`, output path
+handling is identical to the original behavior. Socket mode accepts the same
+option after the port number.
+
+Variable-duration traces are also supported by `3D-ICE-Client` when used with
+an updated `3D-ICE-Server`:
+
+```bash
+bin/3D-ICE-Client 127.0.0.1 10000 power.ptrace
+```
+
+`--follow` and the optional all-minus-one sentinel mode remain available for
+streaming traces. Headerless numeric traces remain backward compatible.
+
 We are constantly looking for your feedback and comments in our strive to improve 3D-ICE. Please send your emails to 3d-ice@listes.epfl.ch. You must subscribe to this mailing list in order to be able to communicate with us and also receive notifications about new releases and updates on new patches, bugs, etc. Notifications will be kept as limited and as brief as possible and THERE WILL BE NO SPAMMING of your mailbox. In addition, this mailing list will serve as a forum where you can interact with other users of 3D-ICE.
 
 ## Citation
@@ -72,4 +139,3 @@ You should have received a copy of the GNU General Public License along with 3D-
     June 6, 2011        Version 1.0.2
     October 7, 2010     Version 1.0.1
     September 28, 2010  Version 1.0
-

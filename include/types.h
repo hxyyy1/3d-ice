@@ -725,6 +725,21 @@ extern "C"
          */
 
         TDICE_SEND_OUTPUT_FILES,
+
+
+
+        /*! \brief Tells the server to run a slot with a custom duration
+         *
+         * The client sends the duration in seconds as a Time_t payload packed
+         * into two MessageWord_t values:
+         *
+         * | 4 | TDICE_SIMULATE_SLOT_WITH_DURATION | duration[0] | duration[1] |
+         *
+         * The duration is used directly as one transient solver step. The reply
+         * contains the SimResult_t returned by emulate_slot.
+         */
+
+        TDICE_SIMULATE_SLOT_WITH_DURATION,
     } ;
 
 

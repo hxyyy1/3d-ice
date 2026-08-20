@@ -127,6 +127,25 @@ extern "C"
 
 
 
+    /*! Relocates every relative inspection-point output below a directory
+     *
+     * Absolute output paths are left unchanged. The destination directory and
+     * any relative parent directories required by inspection-point filenames
+     * are created recursively.
+     *
+     * \param output output configuration to update
+     * \param directory destination directory
+     *
+     * \return \c TDICE_SUCCESS if all paths were updated
+     * \return \c TDICE_FAILURE otherwise
+     */
+
+    Error_t output_set_directory
+
+        (Output_t *output, String_t directory) ;
+
+
+
     /*! Prints the output declaration as it looks in the stack file
      *
      * \param output the address of the structure to print
@@ -198,7 +217,7 @@ extern "C"
      * \param sources      pointer to the first element of the source array
      * \param current_time the time instant at which the output is printed
      * \param timestep_index the index of current time step
-     * \param slotlength     slot time divided by step time
+     * \param slot_index     index of the current simulation slot
      * \param output_instant the instant of the output (slot, step, final)
      *
      * \return \c TDICE_SUCCESS if the operation terminates with success
@@ -213,7 +232,7 @@ extern "C"
         Source_t        *sources,
         Time_t           current_time,
         Quantity_t       timestep_index,
-        Quantity_t       slotlength,
+        Quantity_t       slot_index,
         OutputInstant_t  output_instant
     ) ;
 

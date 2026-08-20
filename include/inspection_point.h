@@ -299,7 +299,7 @@ extern "C"
      * \param sources      pointer to the first element of the source array
      * \param current_time time instant of the measurement
      * \param timestep_index index of current time step
-     * \param slotlength     time slot divided by time step
+     * \param slot_index     index of the current simulation slot
      *
      * \return FIXME
      */
@@ -312,7 +312,7 @@ extern "C"
         Source_t          *sources,
         Time_t             current_time,
         Quantity_t         timestep_index,
-        Quantity_t         slotlength
+        Quantity_t         slot_index
     ) ;
 
 

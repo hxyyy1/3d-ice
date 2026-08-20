@@ -599,7 +599,7 @@ Error_t generate_inspection_point_output
     Source_t          *sources,
     Time_t            current_time,
     Quantity_t        timestep_index,
-    Quantity_t        slotlength
+    Quantity_t        slot_index
 )
 {
     Quantity_t index = 0;
@@ -790,8 +790,8 @@ Error_t generate_inspection_point_output
 
         case TDICE_OUTPUT_TYPE_T3D :
 
-            print_thermal_map_3D (dimensions, temperatures, timestep_index, 
-                                    slotlength, ipoint->FileName, ipoint->Instant);
+            print_thermal_map_3D (dimensions, temperatures, timestep_index,
+                                  slot_index, ipoint->FileName, ipoint->Instant);
 
             break;
 

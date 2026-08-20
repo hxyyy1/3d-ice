@@ -89,6 +89,22 @@ extern "C"
 
         /*! Number of cores in parallel */
         Quantity_t NumOfCores ;
+
+        /*! Number of steps simulated in the current slot */
+
+        Quantity_t CurrentSlotStep ;
+
+        /*! Number of slots simulated */
+
+        Quantity_t CurrentSlot ;
+
+        /*! Accumulated time when variable-step mode is active */
+
+        Time_t SimulatedTime ;
+
+        /*! Nonzero when every slot is one variable-duration step */
+
+        int VariableStepMode ;
         
     } ;
 
@@ -207,13 +223,31 @@ extern "C"
 
 
 
+    /*! Enables variable-step mode and changes the next transient step duration
+     *
+     * Every variable-duration slot consists of exactly one solver step. This
+     * function must be called at a slot boundary. The system matrix must be
+     * updated separately when the step duration changes.
+     *
+     * \param analysis the address of the analysis structure
+     * \param step_time duration of the next step, in seconds
+     *
+     * \return \c TDICE_SUCCESS if the duration was accepted
+     * \return \c TDICE_FAILURE otherwise
+     */
+
+    Error_t analysis_set_variable_step_time
+
+        (Analysis_t *analysis, Time_t step_time) ;
+
+
+
     /*! Returns the state of the slot simulation
      *
      * \param analysis the address of the analysis structure
      *
-     * \return \c TRUE  if the number of simulation steps done so far matches a
-     *                  multiple of the slot length, i.e. it is time to update
-     *                  the source vector with new power values
+     * \return \c TRUE  at a slot boundary, i.e. when it is time to update the
+     *                  source vector with new power values
      * \return \c FALSE otherwise
      */
 

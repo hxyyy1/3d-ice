@@ -1240,6 +1240,69 @@ Error_t thermal_data_build
 
 /******************************************************************************/
 
+Error_t thermal_data_set_variable_step
+(
+    ThermalData_t *tdata,
+    Dimensions_t  *dimensions,
+    Analysis_t    *analysis,
+    Time_t         step_time
+)
+{
+    Analysis_t candidate = *analysis ;
+    SystemMatrix_t new_matrix ;
+    int rebuild_matrix ;
+
+    if (analysis_set_variable_step_time (&candidate, step_time) !=
+        TDICE_SUCCESS)
+
+        return TDICE_FAILURE ;
+
+    rebuild_matrix = step_time != analysis->StepTime ;
+
+    if (rebuild_matrix == 0)
+    {
+        *analysis = candidate ;
+
+        return TDICE_SUCCESS ;
+    }
+
+    if (tdata->ThermalGrid.TopHeatSink != NULL &&
+        tdata->ThermalGrid.TopHeatSink->SinkModel ==
+        TDICE_HEATSINK_TOP_PLUGGABLE)
+    {
+        fprintf (stderr,
+            "Variable dt changes are not supported by pluggable heat sinks\n") ;
+
+        return TDICE_FAILURE ;
+    }
+
+    system_matrix_init (&new_matrix) ;
+
+    if (system_matrix_build
+        (&new_matrix, tdata->Size, get_number_of_connections (dimensions),
+         candidate.NumOfCores) != TDICE_SUCCESS)
+
+        return TDICE_FAILURE ;
+
+    fill_system_matrix
+        (&new_matrix, &tdata->ThermalGrid, &candidate, dimensions) ;
+
+    if (do_factorization (&new_matrix) != TDICE_SUCCESS)
+    {
+        system_matrix_destroy (&new_matrix) ;
+
+        return TDICE_FAILURE ;
+    }
+
+    system_matrix_destroy (&tdata->SM_A) ;
+    tdata->SM_A = new_matrix ;
+    *analysis = candidate ;
+
+    return TDICE_SUCCESS ;
+}
+
+/******************************************************************************/
+
 Error_t set_parallel_cores (Quantity_t num)
 {
     // get the configured OpenMP threads

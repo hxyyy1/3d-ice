@@ -36,6 +36,7 @@
  * 1015 Lausanne, Switzerland           Url  : http://esl.epfl.ch/3d-ice      *
  ******************************************************************************/
 
+#include <math.h>
 #include <stdlib.h> // For the memory functions malloc/free
 
 #include "analysis.h"
@@ -49,6 +50,10 @@ void analysis_init (Analysis_t *analysis)
     analysis->SlotTime           = (Time_t) 0.0 ;
     analysis->SlotLength         = (Quantity_t) 0u ;
     analysis->CurrentTime        = (Quantity_t) 0u ;
+    analysis->CurrentSlotStep    = (Quantity_t) 0u ;
+    analysis->CurrentSlot        = (Quantity_t) 0u ;
+    analysis->SimulatedTime      = (Time_t) 0.0 ;
+    analysis->VariableStepMode   = 0 ;
     analysis->InitialTemperature = (Temperature_t) 0.0 ;
     analysis->NumOfCores = (Quantity_t) 0u ;
 }
@@ -64,6 +69,10 @@ void analysis_copy (Analysis_t *dst, Analysis_t *src)
     dst->SlotTime           = src->SlotTime ;
     dst->SlotLength         = src->SlotLength ;
     dst->CurrentTime        = src->CurrentTime ;
+    dst->CurrentSlotStep    = src->CurrentSlotStep ;
+    dst->CurrentSlot        = src->CurrentSlot ;
+    dst->SimulatedTime      = src->SimulatedTime ;
+    dst->VariableStepMode   = src->VariableStepMode ;
     dst->InitialTemperature = src->InitialTemperature ;
     dst->NumOfCores         = src->NumOfCores ;
 }
@@ -149,7 +158,11 @@ void analysis_print (Analysis_t *analysis, FILE *stream, String_t prefix)
 Time_t get_simulated_time (Analysis_t *analysis
 )
 {
-  return analysis->CurrentTime * analysis->StepTime ;
+    if (analysis->VariableStepMode != 0)
+
+        return analysis->SimulatedTime ;
+
+    return analysis->CurrentTime * analysis->StepTime ;
 }
 
 /******************************************************************************/
@@ -157,17 +170,50 @@ Time_t get_simulated_time (Analysis_t *analysis
 void increase_by_step_time (Analysis_t *analysis)
 {
     analysis->CurrentTime++ ;
+    analysis->CurrentSlotStep++ ;
+
+    if (analysis->VariableStepMode != 0)
+
+        analysis->SimulatedTime += analysis->StepTime ;
+
+    if (analysis->CurrentSlotStep == analysis->SlotLength)
+    {
+        analysis->CurrentSlotStep = 0u ;
+        analysis->CurrentSlot++ ;
+    }
+}
+
+/******************************************************************************/
+
+Error_t analysis_set_variable_step_time
+(
+    Analysis_t *analysis,
+    Time_t       step_time
+)
+{
+    if (analysis->AnalysisType != TDICE_ANALYSIS_TYPE_TRANSIENT ||
+        analysis->CurrentSlotStep != 0u ||
+        isfinite (step_time) == 0 || step_time <= 0.0)
+
+        return TDICE_FAILURE ;
+
+    if (analysis->VariableStepMode == 0)
+
+        analysis->SimulatedTime = analysis->CurrentTime * analysis->StepTime ;
+
+    analysis->StepTime         = step_time ;
+    analysis->SlotTime         = step_time ;
+    analysis->SlotLength       = 1u ;
+    analysis->VariableStepMode = 1 ;
+
+    return TDICE_SUCCESS ;
 }
 
 /******************************************************************************/
 
 bool slot_completed (Analysis_t *analysis)
 {
-    if (analysis->CurrentTime % analysis->SlotLength == 0u)
-
-        return true ;
-
-    return false ;
+    return analysis->CurrentSlotStep == 0u ;
 }
 
 /******************************************************************************/
