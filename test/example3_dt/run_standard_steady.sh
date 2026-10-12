@@ -7,6 +7,9 @@ repo_dir=$(cd "$test_dir/../.." && pwd)
 output_root="$test_dir/outputs/standard_bundle"
 runner="$repo_dir/utils/thermal/run_steady.py"
 
+# The stack also writes inspection outputs to this directory.
+mkdir -p "$test_dir/outputs/hotspot_comparison"
+
 python3 "$runner" \
   --stack "$test_dir/example_steady.stk" \
   --output-dir "$output_root" \

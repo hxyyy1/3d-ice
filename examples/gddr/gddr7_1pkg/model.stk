@@ -1,0 +1,84 @@
+// Integration-ready GDDR7 one-package reference thermal model.
+// Physical target: Micron 24 Gb = 3 GB, 12 x 14 x 1.1 mm, x32, 266-ball.
+// The two-die geometry is inferred from the published GDDR7 four-channel
+// architecture and the 41.6 mm2 die disclosed for a Samsung 16Gb design.
+// A 0.30 mm BGA standoff proxy is included; no PCB or thermal boundary is included.
+// Conductivities are calibrated at about 320 K.  Composite tensors include
+// die-map homogenization and package-interface resistance; see
+// ../../thermal_calibration/thermal_conductivity_calibration.tex.
+
+material SILICON :
+  thermal conductivity 1.30000e-4 ;
+  volumetric heat capacity 1.71000e-12 ;
+
+// No public evidence identifies a high-k mold compound in the target package;
+// use the same 0.88 W/(m K) silica-filled EMC baseline as the other packages.
+material EMC :
+  thermal conductivity 8.80000e-7 ;
+  volumetric heat capacity 1.52000e-12 ;
+
+material ACTIVE_LAYER_EQ :
+  thermal conductivity 1.89222e-6, 6.04591e-6, 6.48251e-5 ;
+  volumetric heat capacity 1.61387e-12 ;
+
+material FC_BUMP_UF_EQ :
+  thermal conductivity 8.78989e-7, 8.78989e-7, 4.56393e-6 ;
+  volumetric heat capacity 1.76025e-12 ;
+
+material PACKAGE_SUBSTRATE_EQ :
+  thermal conductivity 4.90137e-5, 4.90137e-5, 4.68502e-7 ;
+  volumetric heat capacity 1.83109e-12 ;
+
+material BGA_SOLDER_AIR_EQ :
+  thermal conductivity 2.75000e-8, 2.75000e-8, 9.41012e-7 ;
+  volumetric heat capacity 4.70541e-13 ;
+
+dimensions :
+  chip length 12000, width 14000 ;
+  cell length 250, width 250 ;
+  non-uniform true ;
+
+// Height closure: 340 + 148 + 2 + 48 + 262 + 300 = 1100 um.
+layer TOP_EMC_CAP :
+  height 340 ;
+  material EMC ;
+
+layer DRAM_SILICON_148 :
+  height 148 ;
+  material EMC ;
+  layout "dram_silicon.layout" ;
+
+layer FLIP_CHIP_BUMP_48 :
+  height 48 ;
+  material EMC ;
+  layout "bump_underfill.layout" ;
+
+layer PACKAGE_SUBSTRATE_262 :
+  height 262 ;
+  material PACKAGE_SUBSTRATE_EQ ;
+
+layer BGA_STANDOFF_300 :
+  height 300 ;
+  material BGA_SOLDER_AIR_EQ ;
+
+die DRAM_ACTIVE :
+  source 2 ACTIVE_LAYER_EQ ;
+
+stack:
+  layer GDDR7_TOP_MOLD TOP_EMC_CAP ;
+  layer GDDR7_DIE_BACKSIDE DRAM_SILICON_148 ;
+  die   GDDR7_DIE DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer GDDR7_BUMP_UNDERFILL FLIP_CHIP_BUMP_48 ;
+  layer GDDR7_PACKAGE_SUBSTRATE PACKAGE_SUBSTRATE_262 ;
+  layer GDDR7_BGA_STANDOFF BGA_STANDOFF_300 ;
+
+solver:
+  transient step 0.01, slot 0.01 ;
+  initial temperature 300.0 ;
+  numofcores 1 ;
+
+output:
+  Tflp(GDDR7_DIE, "gddr7_die_avg.txt", average, final) ;
+  Tflpel(GDDR7_DIE.GDDR7_ACTIVE_EQ, "gddr7_die_max.txt", maximum, final) ;
+  Tmap(GDDR7_DIE, "gddr7_die_map.txt", final) ;
+  T3d("gddr7_1pkg.vtk", final) ;

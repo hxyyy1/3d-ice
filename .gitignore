@@ -25,3 +25,9 @@ heatsink_plugin/heatsinks/cuplex_kryos_21606/Cuplex.Cuplex21606_ConstantFlowRate
 heatsink_plugin/heatsinks/cuplex_kryos_21606/Cuplex.Cuplex21606_VariableFlowRate_Interface3DICE/
 .vscode/
 superlu_mt-4.0.0/
+
+.local/
+.venv/
+
+test/MatrixCleanup
+test/ThermalCleanupRegression

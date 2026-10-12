@@ -1,0 +1,8 @@
+// Default material is NAND_CORE_EQ. A 250 um EMC perimeter is retained as an
+// HBM4-footprint-compatible package proxy. The top core die has no through TSV.
+
+EMC :
+  rectangle (0, 0, 11000, 250) ;
+  rectangle (0, 10750, 11000, 250) ;
+  rectangle (0, 250, 250, 10500) ;
+  rectangle (10750, 250, 250, 10500) ;

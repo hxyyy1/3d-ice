@@ -44,6 +44,7 @@
 
 #include "stack_description.h"
 #include "thermal_data.h"
+#include "temperature_state.h"
 #include "output.h"
 #include "analysis.h"
 
@@ -304,15 +305,22 @@ int main(int argc, char** argv)
 #define EXE_NAME     argv[0]
 #define STK_FILE     argv[1]
 
+    char *temperature_state_file = NULL ;
     char *steady_results_dir = NULL ;
     char *result_suffix = (char *) "" ;
     int arg_index ;
+
+    if (argc == 2 && strcmp(argv[1], "--temperature-state-version") == 0)
+    {
+        puts(TDICE_TEMPERATURE_STATE_VERSION);
+        return EXIT_SUCCESS;
+    }
 
     if (argc < 2)
     {
         fprintf(stderr,
             "Usage: \"%s file.stk [--steady-results-dir directory] "
-            "[--result-suffix suffix]\"\n", EXE_NAME) ;
+            "[--result-suffix suffix] [--temperature-state-file file]\"\n", EXE_NAME) ;
         return EXIT_FAILURE ;
     }
 
@@ -328,6 +336,15 @@ int main(int argc, char** argv)
             }
 
             steady_results_dir = argv [arg_index] ;
+        }
+        else if (strcmp(argv[arg_index], "--temperature-state-file") == 0)
+        {
+            if (++arg_index == argc || argv[arg_index][0] == '\0')
+            {
+                fprintf(stderr, "--temperature-state-file requires a path\n");
+                return EXIT_FAILURE;
+            }
+            temperature_state_file = argv[arg_index];
         }
         else if (strcmp (argv [arg_index], "--result-suffix") == 0)
         {
@@ -384,11 +401,11 @@ int main(int argc, char** argv)
         return EXIT_FAILURE ;
     }
 
-    if (steady_results_dir != NULL)
+    if (steady_results_dir != NULL || temperature_state_file != NULL)
     {
         if (analysis.AnalysisType != TDICE_ANALYSIS_TYPE_STEADY)
         {
-            fprintf (stderr, "--steady-results-dir requires a steady analysis\n") ;
+            fprintf (stderr, "steady result/state export requires a steady analysis\n") ;
 
             stack_description_destroy (&stkd) ;
             output_destroy            (&output) ;
@@ -497,6 +514,16 @@ int main(int argc, char** argv)
         }
 
     } while (sim_result != TDICE_END_OF_SIMULATION && sim_result != TDICE_SOLVER_ERROR) ;
+
+    if (sim_result == TDICE_SOLVER_ERROR ||
+        (temperature_state_file != NULL && write_temperature_state
+         (temperature_state_file, &tdata, stkd.Dimensions) != TDICE_SUCCESS))
+    {
+        thermal_data_destroy(&tdata);
+        stack_description_destroy(&stkd);
+        output_destroy(&output);
+        return EXIT_FAILURE;
+    }
 
     generate_output (&output, stkd.Dimensions,
                      tdata.Temperatures, tdata.PowerGrid.Sources,

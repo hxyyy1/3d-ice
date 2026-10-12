@@ -37,6 +37,7 @@
  ******************************************************************************/
 
 #include <stdlib.h> // For the memory functions malloc/free
+#include <string.h> // memset
 #include <time.h>
 #include "system_matrix.h"
 #include "macros.h"
@@ -45,6 +46,8 @@
 
 void system_matrix_init (SystemMatrix_t* sysmatrix)
 {
+    /* Include legacy L/U aliases and partially constructed statistics. */
+    memset (sysmatrix, 0, sizeof (*sysmatrix)) ;
     sysmatrix->ColumnPointers = NULL ;
     sysmatrix->RowIndices     = NULL;
     sysmatrix->Values         = NULL ;
@@ -112,146 +115,43 @@ Error_t system_matrix_build
 )
 {
     sysmatrix->Size = size ;
-    sysmatrix->NNz  = nnz ;
+    sysmatrix->NNz = nnz ;
 
-    sysmatrix->RowIndices = (LUIndex_t *) malloc (sizeof(LUIndex_t) * nnz) ;
-
-    if (sysmatrix->RowIndices == NULL)
-        return TDICE_FAILURE ;
-
-    sysmatrix->ColumnPointers = (LUIndex_t *) malloc (sizeof(LUIndex_t) * (size + 1)) ;
-
-    if (sysmatrix->ColumnPointers == NULL)
-    {
-        free (sysmatrix->RowIndices) ;
-        return TDICE_FAILURE ;
-    }
-
-    sysmatrix->Values = (SystemMatrixCoeff_t *) malloc (sizeof(SystemMatrixCoeff_t) * nnz) ;
-
-    if (sysmatrix->Values == NULL)
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        return TDICE_FAILURE ;
-    }
+    sysmatrix->RowIndices = malloc (sizeof (LUIndex_t) * nnz) ;
+    if (sysmatrix->RowIndices == NULL) goto failure ;
+    sysmatrix->ColumnPointers = malloc (sizeof (LUIndex_t) * (size + 1)) ;
+    if (sysmatrix->ColumnPointers == NULL) goto failure ;
+    sysmatrix->Values = malloc (sizeof (SystemMatrixCoeff_t) * nnz) ;
+    if (sysmatrix->Values == NULL) goto failure ;
 
     dCreate_CompCol_Matrix
-
-        (&sysmatrix->SLUMatrix_A, sysmatrix->Size, sysmatrix->Size, sysmatrix->NNz,
-          sysmatrix->Values, (int_t*) sysmatrix->RowIndices, (int_t*) sysmatrix->ColumnPointers,
+        (&sysmatrix->SLUMatrix_A, size, size, nnz, sysmatrix->Values,
+         (int_t *) sysmatrix->RowIndices, (int_t *) sysmatrix->ColumnPointers,
          SLU_NC, SLU_D, SLU_GE) ;
 
-    /* Alloc SLU permutation matrices and elimination tree */
+    sysmatrix->SLU_Options.perm_r = malloc (sizeof (int_t) * size) ;
+    if (sysmatrix->SLU_Options.perm_r == NULL) goto failure ;
+    sysmatrix->SLU_Options.perm_c = malloc (sizeof (int_t) * size) ;
+    if (sysmatrix->SLU_Options.perm_c == NULL) goto failure ;
+    sysmatrix->SLU_Options.etree = malloc (sizeof (int_t) * size) ;
+    if (sysmatrix->SLU_Options.etree == NULL) goto failure ;
+    sysmatrix->SLU_Options.colcnt_h = malloc (sizeof (int_t) * size) ;
+    if (sysmatrix->SLU_Options.colcnt_h == NULL) goto failure ;
+    sysmatrix->SLU_Options.part_super_h = malloc (sizeof (int_t) * size) ;
+    if (sysmatrix->SLU_Options.part_super_h == NULL) goto failure ;
 
-    sysmatrix->SLU_Options.perm_r = (int_t *) malloc (sizeof(int_t) * sysmatrix->Size) ;
-    if (sysmatrix->SLU_Options.perm_r == NULL )
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-        return TDICE_FAILURE ;
-    }
-
-    sysmatrix->SLU_Options.perm_c = (int_t *) malloc(sizeof(int_t) * sysmatrix->Size) ;
-    if (sysmatrix->SLU_Options.perm_c == NULL )
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-
-        free (sysmatrix->SLU_Options.perm_r) ;
-        return TDICE_FAILURE ;
-    }
-
-    sysmatrix->SLU_Options.etree = (int_t *) malloc (sizeof(int_t) * sysmatrix->Size) ;
-    if (sysmatrix->SLU_Options.etree == NULL)
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-
-        free (sysmatrix->SLU_Options.perm_r) ;
-        free (sysmatrix->SLU_Options.perm_c) ;
-        return TDICE_FAILURE ;
-    }
-
-    sysmatrix->SLU_Options.colcnt_h = (int_t *) malloc (sizeof(int_t) * sysmatrix->Size) ;
-    if (sysmatrix->SLU_Options.colcnt_h == NULL)
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-
-        free (sysmatrix->SLU_Options.perm_r) ;
-        free (sysmatrix->SLU_Options.perm_c) ;
-        free (sysmatrix->SLU_Options.etree) ;
-        return TDICE_FAILURE ;
-    }
-
-    sysmatrix->SLU_Options.part_super_h = (int_t *) malloc (sizeof(int_t) * sysmatrix->Size) ;
-    if (sysmatrix->SLU_Options.part_super_h == NULL)
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-
-        free (sysmatrix->SLU_Options.perm_r) ;
-        free (sysmatrix->SLU_Options.perm_c) ;
-        free (sysmatrix->SLU_Options.etree) ;
-        free (sysmatrix->SLU_Options.colcnt_h) ;
-        return TDICE_FAILURE ;
-    }
-
-    // Initiate Gstat_t
-    StatAlloc(sysmatrix->Size, threads, sysmatrix->SLU_Options.panel_size, sysmatrix->SLU_Options.relax, &sysmatrix->SLU_MT_Gstat) ;
-    StatInit (sysmatrix->Size, threads, &sysmatrix->SLU_MT_Gstat) ;
-
+    StatAlloc (size, threads, sysmatrix->SLU_Options.panel_size,
+               sysmatrix->SLU_Options.relax, &sysmatrix->SLU_MT_Gstat) ;
+    StatInit (size, threads, &sysmatrix->SLU_MT_Gstat) ;
     sysmatrix->SLU_Options.nprocs = threads ;
 
-    // Allocate memory for L and U supermatrix
-    if (allocate_U_Matrix(sysmatrix) != TDICE_SUCCESS)
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-        free (sysmatrix->SLU_Options.perm_r) ;
-        free (sysmatrix->SLU_Options.perm_c) ;
-        free (sysmatrix->SLU_Options.etree) ;
-        free (sysmatrix->SLU_Options.colcnt_h) ;
-        free (sysmatrix->SLU_Options.part_super_h) ;
-        StatFree(&sysmatrix->SLU_MT_Gstat) ;
-        return TDICE_FAILURE ;
-    }
-
-    if (allocate_L_Matrix(sysmatrix) != TDICE_SUCCESS)
-    {
-        free (sysmatrix->ColumnPointers) ;
-        free (sysmatrix->RowIndices) ;
-        free (sysmatrix->Values) ;
-        Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
-        free (sysmatrix->SLU_Options.perm_r) ;
-        free (sysmatrix->SLU_Options.perm_c) ;
-        free (sysmatrix->SLU_Options.etree) ;
-        free (sysmatrix->SLU_Options.colcnt_h) ;
-        free (sysmatrix->SLU_Options.part_super_h) ;
-        StatFree(&sysmatrix->SLU_MT_Gstat) ;
-
-        Destroy_CompCol_NCP   (&sysmatrix->SLUMatrix_U) ;
-        return TDICE_FAILURE ;
-    }
+    /* With refact=NO, pdgstrf allocates and owns the L/U data through
+       their Stores. Preallocating them here would be overwritten. */
     return TDICE_SUCCESS ;
+
+failure:
+    system_matrix_destroy (sysmatrix) ;
+    return TDICE_FAILURE ;
 }
 
 /******************************************************************************/
@@ -424,10 +324,42 @@ Error_t allocate_U_Matrix (SystemMatrix_t *sysmatrix)
 
 /******************************************************************************/
 
+/* L/U own their arrays, unlike A and A_Permuted which share caller data.
+   Also handles explicitly preallocated factors from the legacy helpers. */
+static void destroy_factors (SystemMatrix_t *sysmatrix)
+{
+    if (sysmatrix->SLUMatrix_L.Store != NULL)
+        Destroy_SuperNode_SCP (&sysmatrix->SLUMatrix_L) ;
+    if (sysmatrix->SLUMatrix_U.Store != NULL)
+        Destroy_CompCol_NCP (&sysmatrix->SLUMatrix_U) ;
+    sysmatrix->SLUMatrix_L.Store = NULL ;
+    sysmatrix->SLUMatrix_U.Store = NULL ;
+
+    sysmatrix->Nzval_L = NULL ;
+    sysmatrix->Nzval_colbeg = NULL ;
+    sysmatrix->Nzval_colend = NULL ;
+    sysmatrix->Rowind_L = NULL ;
+    sysmatrix->Rowind_colbeg = NULL ;
+    sysmatrix->Rowind_colend = NULL ;
+    sysmatrix->Col_to_sup = NULL ;
+    sysmatrix->Sup_to_colbeg = NULL ;
+    sysmatrix->Sup_to_colend = NULL ;
+    sysmatrix->Nzval_U = NULL ;
+    sysmatrix->Rowind_U = NULL ;
+    sysmatrix->Colbeg = NULL ;
+    sysmatrix->Colend = NULL ;
+}
+
 Error_t do_factorization (SystemMatrix_t *sysmatrix)
 {
     if (sysmatrix->SLU_Options.fact == DOFACT)
     {
+        /* A failed factorization can leave a valid permuted wrapper. */
+        if (sysmatrix->SLUMatrix_A_Permuted.Store != NULL)
+        {
+            Destroy_CompCol_Permuted (&sysmatrix->SLUMatrix_A_Permuted) ;
+            sysmatrix->SLUMatrix_A_Permuted.Store = NULL ;
+        }
         get_perm_c
 
             (sysmatrix->SLU_Options.ColPerm, &sysmatrix->SLUMatrix_A,
@@ -449,6 +381,11 @@ Error_t do_factorization (SystemMatrix_t *sysmatrix)
 
         return TDICE_FAILURE ;
     }
+
+    /* A fresh factorization replaces the Stores rather than reusing them.
+       Keep refact=YES storage alive if a caller explicitly requests reuse. */
+    if (sysmatrix->SLU_Options.refact == NO)
+        destroy_factors (sysmatrix) ;
 
     pdgstrf
 
@@ -478,28 +415,7 @@ void system_matrix_destroy (SystemMatrix_t *sysmatrix)
     free (sysmatrix->RowIndices) ;
     free (sysmatrix->Values) ;
 
-    // free L matrix
-    free (sysmatrix->Nzval_L) ;
-    free (sysmatrix->Nzval_colbeg) ;
-    free (sysmatrix->Nzval_colend) ;
-    free (sysmatrix->Rowind_L) ;
-    free (sysmatrix->Rowind_colbeg) ;
-    free (sysmatrix->Rowind_colend) ;
-    free (sysmatrix->Col_to_sup) ;
-    free (sysmatrix->Sup_to_colbeg) ;
-    free (sysmatrix->Sup_to_colend) ;
-    //Destroy_SuperNode_SCP (&sysmatrix->SLUMatrix_L) ;
-    //free (sysmatrix->SLUMatrix_L.Store) ;
-    Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_L) ;
-
-    // free U matrix
-    free (sysmatrix->Nzval_U) ;
-    free (sysmatrix->Rowind_U) ;
-    free (sysmatrix->Colbeg) ;
-    free (sysmatrix->Colend) ;
-    //Destroy_CompCol_NCP   (&sysmatrix->SLUMatrix_U) ;
-    //free (sysmatrix->SLUMatrix_U.Store) ;
-    Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_U) ;
+    destroy_factors (sysmatrix) ;
 
     Destroy_SuperMatrix_Store (&sysmatrix->SLUMatrix_A) ;
     
@@ -510,7 +426,7 @@ void system_matrix_destroy (SystemMatrix_t *sysmatrix)
     free (sysmatrix->SLU_Options.colcnt_h) ;
     free (sysmatrix->SLU_Options.part_super_h) ;
 
-    if (sysmatrix->SLU_Options.fact != DOFACT )
+    if (sysmatrix->SLUMatrix_A_Permuted.Store != NULL)
     {
         Destroy_CompCol_Permuted (&sysmatrix->SLUMatrix_A_Permuted) ;
     }

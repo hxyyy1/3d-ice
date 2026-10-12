@@ -1,0 +1,5 @@
+// The layer default is EMC. DAF exists only below the two dies in each tier.
+
+DAF :
+  rectangle (750, 2600, 6250, 7000) ;
+  rectangle (7000, 2600, 6250, 7000) ;

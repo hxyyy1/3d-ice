@@ -1,0 +1,7 @@
+// One-module equivalent HBM4 DRAM active layer.
+// No embedded power values: supply this module from an external power trace.
+
+DRAM_ACTIVE_EQ :
+  position 0, 0 ;
+  dimension 11000, 11000 ;
+  discretization 44, 44 ;

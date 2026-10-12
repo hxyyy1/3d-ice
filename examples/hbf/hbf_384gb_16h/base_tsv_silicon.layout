@@ -1,0 +1,12 @@
+// Base/logic die: default material is SILICON, with the same provisional
+// 7 x 9 mm TSV window used by the HBF core-die reference geometry.
+
+EMC :
+  rectangle (0, 0, 11000, 250) ;
+  rectangle (0, 10750, 11000, 250) ;
+  rectangle (0, 250, 250, 10500) ;
+  rectangle (10750, 250, 250, 10500) ;
+
+TSV_SI_HBF_EQ :
+  position 2000, 1000 ;
+  dimension 7000, 9000 ;

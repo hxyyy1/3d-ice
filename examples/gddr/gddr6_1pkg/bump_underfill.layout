@@ -1,0 +1,6 @@
+// The layer default is EMC. Each measured die footprint uses homogenized
+// flip-chip bump/underfill material; placement follows dram_silicon.layout.
+
+FC_BUMP_UF_EQ :
+  rectangle (1885, 2250, 8230, 4500) ;
+  rectangle (1885, 7250, 8230, 4500) ;

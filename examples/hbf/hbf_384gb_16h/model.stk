@@ -1,0 +1,174 @@
+// Physical reference model: HBF 384 GB, 1 TB/s, 16-high NAND core stack
+// plus one logic/base die. Capacity and bandwidth follow the H3/MemExplorer
+// target point; 16H, TSV stacking, CBA core dies and base-die architecture are
+// cross-checked against Sandisk, OCP and KAIST TERALAB public material.
+//
+// This is an integration-ready HBF cube without interposer, TIM or boundary.
+// Conductivities are calibrated from HBM measurements and a BiCS8-derived
+// NAND-array laminate. See ../../thermal_calibration/thermal_conductivity_calibration.tex.
+
+material SILICON :
+  thermal conductivity 1.30000e-4 ;
+  volumetric heat capacity 1.71000e-12 ;
+
+// 33 um core-die backing: 24.28 um Si plus an 8.72 um effective 218-layer
+// W/SiO2 NAND array.  This is intentionally anisotropic.
+material NAND_CORE_EQ :
+  thermal conductivity 1.01118e-4, 1.01118e-4, 9.67726e-6 ;
+  volumetric heat capacity 1.81120e-12 ;
+
+// The same NAND matrix with the provisional HBF TSV copper fraction.
+material TSV_NAND_HBF_EQ :
+  thermal conductivity 1.02674e-4, 1.02674e-4, 1.46145e-5 ;
+  volumetric heat capacity 1.83248e-12 ;
+
+// Base/logic die remains a Si matrix rather than a NAND laminate.
+material TSV_SI_HBF_EQ :
+  thermal conductivity 1.31699e-4, 1.31699e-4, 1.33375e-4 ;
+  volumetric heat capacity 1.73259e-12 ;
+
+material EMC :
+  thermal conductivity 8.80000e-7 ;
+  volumetric heat capacity 1.52000e-12 ;
+
+// The 2 um source slice represents the CBA peripheral/base CMOS plane; the
+// NAND word-line laminate is included in NAND_CORE_EQ, not duplicated here.
+material CMOS_ACTIVE_LAYER_EQ :
+  thermal conductivity 1.65659e-5, 1.65659e-5, 1.18529e-4 ;
+  volumetric heat capacity 1.62551e-12 ;
+
+// 10 um microbump/MUF layer.  kz scales the HBM-calibrated area resistance to
+// 10 um; kxy uses a Maxwell cylinder composite with 20% bump area.
+material MICROBUMP_MUF_EQ :
+  thermal conductivity 1.30368e-6, 1.30368e-6, 8.16667e-7 ;
+  volumetric heat capacity 1.55800e-12 ;
+
+dimensions :
+  chip length 11000, width 11000 ;
+  cell length 250, width 250 ;
+  non-uniform true ;
+
+// Height closure for an HBM4-compatible 775 um envelope:
+// 16 uniform core dies x 35 + 16 bonds x 10 + base die 55 = 775 um.
+// The 35/10/55 um partition is a transparent reference construction, not a
+// disclosed Sandisk or SK hynix product cross-section.
+layer TOP_NAND_SUBSTRATE_33 :
+  height 33 ;
+  material NAND_CORE_EQ ;
+  layout "top_silicon.layout" ;
+
+layer TSV_NAND_SUBSTRATE_33 :
+  height 33 ;
+  material NAND_CORE_EQ ;
+  layout "tsv_silicon.layout" ;
+
+layer HBF_BASE_SUBSTRATE_53 :
+  height 53 ;
+  material SILICON ;
+  layout "base_tsv_silicon.layout" ;
+
+layer D2D_MICROBUMP_MUF_10 :
+  height 10 ;
+  material MICROBUMP_MUF_EQ ;
+
+die NAND_CORE_ACTIVE :
+  source 2 CMOS_ACTIVE_LAYER_EQ ;
+
+die HBF_BASE_ACTIVE :
+  source 2 CMOS_ACTIVE_LAYER_EQ ;
+
+stack:
+  layer HBF_D16_SUBSTRATE TOP_NAND_SUBSTRATE_33 ;
+  die   HBF_D16 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D16_D15 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D15_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D15 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D15_D14 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D14_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D14 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D14_D13 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D13_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D13 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D13_D12 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D12_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D12 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D12_D11 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D11_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D11 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D11_D10 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D10_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D10 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D10_D9 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D9_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D9 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D9_D8 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D8_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D8 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D8_D7 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D7_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D7 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D7_D6 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D6_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D6 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D6_D5 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D5_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D5 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D5_D4 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D4_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D4 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D4_D3 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D3_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D3 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D3_D2 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D2_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D2 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D2_D1 D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_D1_SUBSTRATE TSV_NAND_SUBSTRATE_33 ;
+  die   HBF_D1 NAND_CORE_ACTIVE floorplan "nand_core.flp" ;
+  layer HBF_BOND_D1_BASE D2D_MICROBUMP_MUF_10 ;
+
+  layer HBF_BASE_SUBSTRATE HBF_BASE_SUBSTRATE_53 ;
+  die   HBF_BASE HBF_BASE_ACTIVE floorplan "base_die.flp" ;
+
+solver:
+  transient step 0.01, slot 0.01 ;
+  initial temperature 300.0 ;
+  numofcores 1 ;
+
+output:
+  Tflp(HBF_D16,  "hbf_d16_avg.txt", average, final) ;
+  Tflp(HBF_D15,  "hbf_d15_avg.txt", average, final) ;
+  Tflp(HBF_D14,  "hbf_d14_avg.txt", average, final) ;
+  Tflp(HBF_D13,  "hbf_d13_avg.txt", average, final) ;
+  Tflp(HBF_D12,  "hbf_d12_avg.txt", average, final) ;
+  Tflp(HBF_D11,  "hbf_d11_avg.txt", average, final) ;
+  Tflp(HBF_D10,  "hbf_d10_avg.txt", average, final) ;
+  Tflp(HBF_D9,   "hbf_d9_avg.txt", average, final) ;
+  Tflp(HBF_D8,   "hbf_d8_avg.txt", average, final) ;
+  Tflp(HBF_D7,   "hbf_d7_avg.txt", average, final) ;
+  Tflp(HBF_D6,   "hbf_d6_avg.txt", average, final) ;
+  Tflp(HBF_D5,   "hbf_d5_avg.txt", average, final) ;
+  Tflp(HBF_D4,   "hbf_d4_avg.txt", average, final) ;
+  Tflp(HBF_D3,   "hbf_d3_avg.txt", average, final) ;
+  Tflp(HBF_D2,   "hbf_d2_avg.txt", average, final) ;
+  Tflp(HBF_D1,   "hbf_d1_avg.txt", average, final) ;
+  Tflp(HBF_BASE, "hbf_base_avg.txt", average, final) ;
+  Tflpel(HBF_BASE.BASE_ACTIVE_EQ, "hbf_base_max.txt", maximum, final) ;
+  Tmap(HBF_D16,  "hbf_top_map.txt", final) ;
+  Tmap(HBF_BASE, "hbf_base_map.txt", final) ;
+  T3d("hbf_384gb_16h.vtk", final) ;

@@ -1,0 +1,7 @@
+// The layer default is EMC. Two side-by-side 8Gb dies use the whole-die
+// dimensions measured for Samsung K4Z80165BC: 8.23 x 4.50 mm (37.03 mm2).
+// The centered placement and 0.50 mm inter-die gap are package-layout proxies.
+
+SILICON :
+  rectangle (1885, 2250, 8230, 4500) ;
+  rectangle (1885, 7250, 8230, 4500) ;

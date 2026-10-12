@@ -132,7 +132,13 @@ SLU_VERSION = 4.0.0
 SLU_MAIN    = $(3DICE_MAIN)/superlu_mt-$(SLU_VERSION)
 SLU_INCLUDE = $(SLU_MAIN)/SRC
 SLU_LIB     = $(SLU_MAIN)/lib
-SLU_LIBS    = -L$(SLU_LIB) -lsuperlu_mt_OPENMP$(PLAT) -L/lib/x86_64-linux-gnu -lopenblas
+# OpenBLAS uses a separate include directory on some distributions (e.g. CentOS).
+OPENBLAS_CFLAGS ?= $(shell pkg-config --cflags openblas 2>/dev/null)
+ifneq ($(wildcard /usr/include/openblas/cblas.h),)
+OPENBLAS_CFLAGS += -I/usr/include/openblas
+endif
+OPENBLAS_LIBS ?= -lopenblas
+SLU_LIBS    = -L$(SLU_LIB) -lsuperlu_mt_OPENMP$(PLAT) $(OPENBLAS_LIBS)
 
  #
  # SystemC variables
@@ -163,7 +169,7 @@ CC        = gcc
 CFLAGS    = -MD -O3 -fopenmp
 # CFLAGS    = -MD -g -O0 -fsanitize=address -fopenmp
 # CFLAGS    = -MD -g -O0 -fopenmp
-CINCLUDES = -I$(3DICE_INCLUDE)
+CINCLUDES = -I$(3DICE_INCLUDE) $(OPENBLAS_CFLAGS)
 
 YACC      = bison
 YFLAGS    = -d

@@ -1,0 +1,7 @@
+// One-module GDDR7 active-layer floorplan.
+// No embedded power values: supply P_pkg(t) from an external power trace.
+
+GDDR7_ACTIVE_EQ :
+  position 0, 0 ;
+  dimension 12000, 14000 ;
+  discretization 48, 56 ;

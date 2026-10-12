@@ -1,0 +1,13 @@
+// Default layer material is SILICON. HBM4 doubles the interface width to
+// 2048 I/O. In the absence of a public production TSV map, this model doubles
+// the HBM3E TSV copper-area fraction inside the same aligned 7 x 9 mm window.
+
+EMC :
+  rectangle (0, 0, 11000, 250) ;
+  rectangle (0, 10750, 11000, 250) ;
+  rectangle (0, 250, 250, 10500) ;
+  rectangle (10750, 250, 250, 10500) ;
+
+TSV_SI_HBM4_EQ :
+  position 2000, 1000 ;
+  dimension 7000, 9000 ;

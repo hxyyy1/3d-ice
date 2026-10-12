@@ -1,0 +1,11 @@
+--- a/SRC/get_perm_c.c
++++ b/SRC/get_perm_c.c
+@@ -466,6 +466,8 @@
+ #endif
+ 
+     } else { /* Empty adjacency structure */
++        /* at_plus_a/getata still allocate n+1 column pointers. */
++        SUPERLU_FREE(b_colptr);
+ 	for (i = 0; i < n; ++i) perm_c[i] = i;
+     }
+ 

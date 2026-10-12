@@ -1,0 +1,6 @@
+// The layer default is 0.88 W/(m K) EMC. Each die footprint uses homogenized
+// flip-chip bump/underfill material.
+
+FC_BUMP_UF_EQ :
+  rectangle (2750, 400, 6500, 6400) ;
+  rectangle (2750, 7000, 6500, 6400) ;

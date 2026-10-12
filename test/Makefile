@@ -237,3 +237,14 @@ clean:
 	@$(RM) $(RMFLAGS) plugin/test_aligned.txt                 plugin/test_unaligned.txt
 	@$(RM) $(RMFLAGS) plugin/test_rotated_aligned.txt         plugin/test_rotated_unaligned.txt
 	cd plugin; make clean
+
+# Memory lifecycle regression. Outputs only to stdout; no thermal artifacts.
+.PHONY: matrixcleanuptest
+MatrixCleanup: MatrixCleanup.c $(3DICE_LIB_A) $(SLU_LIB)/libsuperlu_mt_OPENMP$(PLAT).a
+	$(CC) $(CFLAGS) -fno-builtin $(CINCLUDES) $< $(CLIBS) -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free -o $@
+
+matrixcleanuptest: MatrixCleanup
+	OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MALLOC_CHECK_=3 MALLOC_PERTURB_=165 ./MatrixCleanup full 2000
+
+ThermalCleanupRegression: ThermalCleanupRegression.c $(3DICE_LIB_A)
+	$(CC) $(CFLAGS) $(CINCLUDES) $< $(CLIBS) -o $@

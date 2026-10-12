@@ -1,0 +1,8 @@
+// One-module equivalent active/peripheral layer for one CBA NAND core die.
+// No embedded power values: supply this module from an external power trace.
+
+NAND_ACTIVE_EQ :
+  position 0, 0 ;
+  dimension 11000, 11000 ;
+  discretization 44, 44 ;
+

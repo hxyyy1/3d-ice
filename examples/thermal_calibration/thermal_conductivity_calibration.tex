@@ -1,0 +1,617 @@
+% !TeX program = xelatex
+\documentclass[UTF8,zihao=-4]{ctexart}
+
+\usepackage[a4paper,margin=25mm,headheight=15pt]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,longtable,tabularx,array,threeparttable}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[backend=biber,style=numeric,sorting=none,maxbibnames=8]{biblatex}
+
+\addbibresource{thermal_conductivity_calibration.bib}
+\sisetup{per-mode=symbol,detect-all,group-separator={,},group-minimum-digits=4}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!45!black,
+  citecolor=blue!45!black,
+  urlcolor=blue!55!black,
+  pdftitle={GDDR、LPDDR、HBM与HBF分层热导率和体积热容校准方法},
+  pdfauthor={3D-ICE memory-package calibration}
+}
+\setlist{nosep,leftmargin=2em}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.25em}
+\renewcommand{\arraystretch}{1.18}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{存储器封装热物性校准}
+\fancyhead[R]{GDDR / LPDDR / HBM / HBF}
+\fancyfoot[C]{\thepage}
+
+\newcommand{\kvec}{\bm{k}_{\mathrm{eff}}}
+\newcommand{\kxyz}{(k_x,k_y,k_z)}
+\newcommand{\unitk}{\mathrm{W\,m^{-1}\,K^{-1}}}
+\newcommand{\unitr}{\mathrm{m^2\,K\,W^{-1}}}
+\newcommand{\grade}[1]{\textbf{#1级}}
+\DeclareSIUnit{\tcond}{\watt\per\metre\per\kelvin}
+\AtBeginBibliography{\small}
+
+\title{GDDR、LPDDR、HBM与HBF分层热导率\\与体积热容校准方法}
+\author{3D-ICE 存储器封装模型方法附录}
+\date{校准日期：2026年8月23日}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文给出GDDR6/GDDR7、LPDDR5X/LPDDR6、HBM3E/HBM4及16-high HBF热模型的分层热导率与非active层体积热容校准方法。公开资料能够直接约束Si、EMC、BT基材、SAC焊料、V-NAND材料和部分封装几何，但不能给出目标料号的完整铜图、界面热阻、TSV阵列或专有MUF/NCF配方。因此，校准采用四层证据链：目标或同类器件实测、权威热容数据、几何驱动的各向异性均质化、以及带显式区间的工程假设。热导率分别采用有限体积、层内/层间等效、Maxwell夹杂和面积热阻反演；体积热容则在约320 K下由$C_v=\rho c_p$建立基础材料表，并按最新铜覆盖率、bump/TSV面积分数和NAND厚度比例守恒混合。active/source材料按本轮要求保持不变。校准后，HBM3E堆栈的贯穿等效热导率为\SI{6.99}{\tcond}；非active材料的总热容量与当前几何闭合。所有名义值均由配套脚本复现，并与七个3D-ICE模型文件逐项核对。
+\end{abstract}
+
+\noindent\textbf{关键词：} 热导率；体积热容；各向异性均质化；瞬态热响应；GDDR；LPDDR；HBM；HBF；3D-ICE
+
+\tableofcontents
+
+\section{适用范围与校准边界}
+
+本文的目标是为系统级热网络提供可复现的\emph{有效热导率张量与体积热容}，而不是重建厂商保密process deck。模型使用
+\begin{equation}
+  \kvec=\operatorname{diag}(k_x,k_y,k_z),
+\end{equation}
+其中$x,y$为封装平面方向，$z$为堆叠方向。除特别说明外，名义值对应约\SI{320}{\kelvin}；这是内存器件从环境温度升温后、尚未接近高温限制的代表性中心点。
+
+证据等级定义如下：
+
+\begin{center}
+\begin{tabularx}{0.94\textwidth}{>{\bfseries}c X}
+\toprule
+等级 & 含义 \\
+\midrule
+A & 目标料号的机械图、厂商规格或目标器件直接测量。\\
+B & 同类封装直接测量、同行评审论文或权威材料数据库。\\
+C & 使用A/B级几何与材料数据得到的可复现等效计算。\\
+D & 无公开结构时的工程假设；必须给出敏感性范围，不能用于产品sign-off。\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+校准遵循三个边界条件。第一，材料热导率与\emph{封装层有效热导率}不得混用；例如SAC焊料可以达到约\SI{58}{\tcond}，但焊球阵列或microbump层还包含空气/聚合物、焊盘收缩、金属间化合物和界面热阻。第二，几何未知时保留参数化输入，而不是把相邻代产品值标成实测。第三，体积热容只校准非active材料；现有active/source材料及其功耗空间等效按用户要求保持不变。体积热容不改变稳态解，但直接影响升温斜率和瞬态时间常数。
+
+\section{基础材料与参考温度}
+
+高纯Si在\SIrange{300}{400}{\kelvin}内的热导率随温度显著下降\cite{GlassbrennerSlack1964}。NIST封装热测量汇编给出的工程近似为\cite{NIST40086}
+\begin{equation}
+  k_{\mathrm{Si}}(T)=\frac{28600}{T-100}\quad [\unitk],
+  \qquad \SI{300}{\kelvin}\le T\le\SI{600}{\kelvin}.
+  \label{eq:si-temperature}
+\end{equation}
+式\eqref{eq:si-temperature}在\SI{320}{\kelvin}给出\SI{130}{\tcond}，因此所有模型采用$k_{\mathrm{Si}}=130~\unitk$。若仿真长期运行在\SI{373}{\kelvin}附近，应将Si相关等效量用约\SI{105}{\tcond}重新计算，而不是继续使用室温常数。
+
+NIST solid-Si Shomate式在320 K给出$c_{p,m}\simeq20.60$ J/(mol K)\cite{NISTSiliconCp}。使用$M_{Si}=28.0855$ g/mol和$\rho_{Si}\simeq2.33$ g/cm$^3$：
+\begin{equation}
+  C_{v,Si}=\rho_{Si}\frac{c_{p,m}}{M_{Si}}
+  \simeq1.71~\mathrm{MJ/(m^3K)}.
+\end{equation}
+这比旧项目常数1.628更符合统一的320 K参考温度；active/source等效材料仍按本轮边界保留旧热容。
+
+\begingroup
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}p{2.2cm}rrcp{6.8cm}@{}}
+\caption{均质化使用的基础材料名义值}\label{tab:base-materials}\\
+\toprule
+材料 & $k$ [$\unitk$] & $C_v$ [MJ/(m$^3$K)] & 等级 & 依据与用途 \\
+\midrule
+\endfirsthead
+\toprule
+材料 & $k$ [$\unitk$] & $C_v$ [MJ/(m$^3$K)] & 等级 & 依据与用途 \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+单晶Si & 130 & 1.710 & B & $k$为\SI{320}{\kelvin}中心值；$C_v$由NIST solid-Si Shomate热容与密度得到\cite{NISTSiliconCp}。\\
+Cu & 390 & 3.450 & B & 封装铜工程值；公开表给出$\rho\simeq8.94$ g/cm$^3$、$c_p\simeq0.386$ J/(g K)\cite{Khan2012}。\\
+标准EMC/MUF代理 & 0.88 & 1.520 & B/D & $C_v$由公开PBGA mold的$1.90$ g/cm$^3\times0.80$ J/(g K)得到\cite{LiLyu2021}；不是目标厂商配方。\\
+BT-glass laminate & 0.34 & 1.600 & B & 公开2.5D封装模型给出$1.91$ g/cm$^3$与837.36 J/(kg K)\cite{MaYuWang2014}。\\
+绝缘DAF & 0.30 & 1.500 & D & 无目标产品DSC/密度；保留低导热绝缘胶膜中心值，需瞬态实测校准。\\
+NCF & 0.20 & 1.370 & C/D & $k$来自HBM模型；$C_v$由公开3D-interconnect材料表的$1.23$ g/cm$^3\times1.11$ J/(g K)类比\cite{Khan2012}。\\
+SAC305 & 58 & 1.710 & B & 厂商数据$\rho=7.37$ g/cm$^3$、$c_p=0.232$ J/(g K)\cite{MacDermidSAC305}。\\
+空气 & 0.0275 & 0.00111 & B/C & 320 K、1 atm理想气体密度与$c_p$计算；对层总热容影响很小。\\
+PI & 0.20 & 1.500 & C & 公开polyimide基线$1.70$ g/cm$^3\times0.88$ J/(g K)\cite{LiLyu2021}。\\
+Ni & 90 & 4.000 & B/C & NIST室温固态热容与约8.9 g/cm$^3$密度的320 K工程取整。\\
+W & 40 & 2.580 & B/C & V-NAND材料模型的$c_p$与NIST密度组合\cite{KimRyuLee2025}。\\
+SiO$_2$ ILD & 1.40 & 1.606 & B/C & V-NAND的$c_p=730$ J/(kg K)与2.20 g/cm$^3$密度组合\cite{KimRyuLee2025}。\\
+\end{longtable}
+\endgroup
+
+\section{统一等效方法}
+
+\subsection{面积并联与厚度串联}
+
+当连续导热相沿热流方向贯穿一层时，面积并联给出
+\begin{equation}
+  k_{\parallel}=\sum_i f_i k_i, \qquad \sum_i f_i=1.
+  \label{eq:parallel}
+\end{equation}
+沿厚度方向依次穿过多个材料时，单位面积热阻相加：
+\begin{equation}
+  k_{\mathrm{series}}=\frac{\sum_i t_i}{\sum_i t_i/k_i}.
+  \label{eq:series}
+\end{equation}
+式\eqref{eq:parallel}是上界，式\eqref{eq:series}是下界。只有几何确实满足对应拓扑时才直接采用；孤立金属柱的横向热传导不满足一维串联假设。
+
+\subsection{体积热容守恒等效}
+
+基础材料体积热容由密度和定压比热计算：
+\begin{equation}
+  C_{v,i}=\rho_i c_{p,i}.
+  \label{eq:cv-rho-cp}
+\end{equation}
+在封装尺度上，各相可视为局部热平衡且不发生相变，故复合层的总储热量必须满足
+\begin{equation}
+  C_{v,\mathrm{eq}}V\Delta T
+  =\sum_i C_{v,i}V_i\Delta T,
+\end{equation}
+从而
+\begin{equation}
+  C_{v,\mathrm{eq}}=\sum_i f_i C_{v,i},
+  \qquad f_i=V_i/V.
+  \label{eq:cv-volume-average}
+\end{equation}
+与热导率不同，式\eqref{eq:cv-volume-average}不区分$x/y/z$方向；关键是使用与当前几何完全一致的Cu覆盖率、bump/TSV面积分数和层厚比例。对于柱状夹杂横截面不随$z$变化的层，面积分数等于体积分数。active/source层本轮不参与热容重算。
+
+\subsection{圆柱夹杂的Maxwell面内模型}
+
+对导热率$k_i$、面积分数$f$的平行圆柱嵌入基体$k_m$，垂直于圆柱轴的Maxwell解为
+\begin{equation}
+  k_{\perp}=k_m
+  \frac{k_i+k_m+f(k_i-k_m)}{k_i+k_m-f(k_i-k_m)}.
+  \label{eq:maxwell}
+\end{equation}
+TSV或microbump轴向使用式\eqref{eq:parallel}，面内使用式\eqref{eq:maxwell}。这一处理比Reuss下界更符合稀疏圆柱夹杂的二维温度场；TSV封装文献也将轴向并联与横向effective-medium模型分开处理\cite{MaYuWang2014}。
+
+\subsection{非规则die/EMC平面图的数值均质化}
+
+GDDR、LPDDR和HBM source层在3D-ICE中被压缩为一个均匀材料，但实际平面由Si矩形和EMC背景组成。本文在与交付模型相同的网格上求解
+\begin{equation}
+  \nabla\cdot\left[k(x,y)\nabla T(x,y)\right]=0.
+  \label{eq:cell-problem}
+\end{equation}
+计算$k_x$时在左右边界施加$T=0$与$T=1$，上下边界绝热；$k_y$交换方向。由边界总热流$Q$反演
+\begin{equation}
+  k_x=\frac{Q_x L_x}{L_y\Delta T},\qquad
+  k_y=\frac{Q_y L_y}{L_x\Delta T}.
+  \label{eq:fvm-inversion}
+\end{equation}
+有限体积内部面采用调和面热导率，保证材料界面热流连续。贯穿方向仍由Si面积分数$f_{\mathrm{Si}}$按式\eqref{eq:parallel}计算：
+\begin{equation}
+  k_z=f_{\mathrm{Si}}k_{\mathrm{Si}}+(1-f_{\mathrm{Si}})k_{\mathrm{EMC}}.
+  \label{eq:active-kz}
+\end{equation}
+该方法取代“只沿die中心线求一条串联路径”的旧算法；后者会忽略旁路面积并依赖人为选择的路径。
+
+\subsection{界面/收缩面积热阻}
+
+当体材料等效为$k_{z,\mathrm{bulk}}$、层厚为$t$，但存在未解析的接触、IMC、空洞、BEOL或焊盘收缩热阻$R''_c$时，等效值为
+\begin{equation}
+  k_{z,\mathrm{eff}}
+  =\frac{t}{t/k_{z,\mathrm{bulk}}+R''_c}.
+  \label{eq:contact}
+\end{equation}
+Colgan等对\SI{16.1}{\micro\metre}高、约\SI{25}{\micro\metre}直径、\SI{50}{\micro\metre} pitch的microbump/underfill层测得$R''=8.0~\mathrm{K\,mm^2\,W^{-1}}$\cite{Colgan2012}，说明单纯把焊料和聚合物按面积并联会显著高估$k_z$。HBM直接测量也得到polymer/solder层约\SI{2}{\tcond}，而不是体材料并联预测的约\SI{10}{\tcond}\cite{ChaliseCahill2023}。
+
+\subsection{铜走线封装基板}
+
+对总厚度$t_s$、$N$层铜、每层铜厚$t_{Cu}$、铜覆盖率$\phi$的基板，先将patterned metal lamina等效为
+\begin{equation}
+  k_{\ell}=\phi k_{Cu}+(1-\phi)k_d,
+\end{equation}
+再按层内并联、层间串联\cite{JohnsonEyman1998}：
+\begin{align}
+  k_{xy,s}&=\frac{(t_s-Nt_{Cu})k_d+Nt_{Cu}k_{\ell}}{t_s},
+  \label{eq:substrate-xy}\\
+  k_{z,s}&=\frac{t_s}{(t_s-Nt_{Cu})/k_d+Nt_{Cu}/k_{\ell}}.
+  \label{eq:substrate-z}
+\end{align}
+没有公开via map时不把理想贯穿铜柱隐式加入式\eqref{eq:substrate-z}；真实via密度应作为独立更新项。
+
+\subsection{3D-ICE单位换算}
+
+模型几何使用$\mu\mathrm{m}$，因此3D-ICE热导率输入为\si{\watt\per\micro\metre\per\kelvin}：
+\begin{equation}
+  k_{\mathrm{3D\mbox{-}ICE}}=10^{-6}k_{\mathrm{SI}}.
+  \label{eq:unit-conversion}
+\end{equation}
+若表中$C_v$使用MJ/(m$^3$K)，则
+\begin{equation}
+  C_{v,\mathrm{3D\mbox{-}ICE}}=10^{-12}C_v
+  \quad [\mathrm{J\,\mu m^{-3}\,K^{-1}}].
+  \label{eq:cv-unit-conversion}
+\end{equation}
+例如\SI{130}{\tcond}写成\texttt{1.30000e-4}，$C_v=1.710$ MJ/(m$^3$K)写成\texttt{1.71000e-12}。表格均使用SI或明确标注的MJ单位，避免论文与模型文件之间混淆数量级。
+
+\section{GDDR6与GDDR7}
+
+\subsection{Active/source层}
+
+GDDR6在$12\times14~\mathrm{mm^2}$封装中包含两颗$8.23\times4.50~\mathrm{mm^2}$ die；GDDR7包含两颗$6.50\times6.40~\mathrm{mm^2}$ die。对应Si面积分数为
+\begin{equation}
+  f_{\mathrm{Si,G6}}=0.440893,\qquad
+  f_{\mathrm{Si,G7}}=0.495238.
+\end{equation}
+在$48\times56$交付网格上用式\eqref{eq:cell-problem}求解，得到：
+
+\begin{table}[htbp]
+\centering
+\caption{GDDR active/source层校准结果}
+\begin{tabular}{lrrrr}
+\toprule
+模型 & $f_{\mathrm{Si}}$ & $k_x$ & $k_y$ & $k_z$ \\
+\midrule
+GDDR6 & 0.440893 & 2.3265 & 2.1687 & 57.8081 \\
+GDDR7 & 0.495238 & 1.8922 & 6.0459 & 64.8251 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+GDDR7旧模型曾给EMC指定\SI{2.46}{\tcond}，但目标封装没有公开材料证据。校准采用可核验的标准EMC \SI{0.88}{\tcond}\cite{KimYooPatent2026}，并把高导热EMC保留为可选敏感性情景，而不是名义值。
+
+\subsection{Cu-pillar/underfill层}
+
+SIMMTECH给出GDDR FCCSP的\SI{57}{\micro\metre} bump pitch及$25/32~\mu\mathrm{m}$线宽/间距\cite{SimmtechGDDR}。FCCSP截面研究给出\SI{30}{\micro\metre} Cu pillar、\SI{3}{\micro\metre} Ni、\SI{10}{\micro\metre} reflow solder和\SI{5}{\micro\metre} PI\cite{LiEtAl2025}。因此
+\begin{equation}
+  f_b=\frac{\pi(12.5)^2}{57^2}=0.151085.
+\end{equation}
+PI开口外的matrix及开口内的metal column分别为
+\begin{align}
+  k_m&=\frac{48}{43/0.88+5/0.20}=0.64985,\\
+  k_c&=\frac{48}{30/390+3/90+10/58+5/390}=162.44.
+\end{align}
+面内用式\eqref{eq:maxwell}得到$k_{xy}=0.87899$。轴向体材料上界为$k_{z,\mathrm{bulk}}=25.094$；再把IBM测量反演的bump实际接触面积热阻$R''_{c,b}=1.30\times10^{-6}\,\unitr$按$f_b$换算到单元面积并代入式\eqref{eq:contact}，得到
+\begin{equation}
+  \kxyz_{\mathrm{FC}}=(0.8790,0.8790,4.5639)~\unitk.
+\end{equation}
+该值仍是跨封装类比的C/D级结果；目标GDDR截面或结构函数应优先于本式。
+
+\subsection{4L/6L package substrate}
+
+公开供应商规格给出GDDR6 4L与GDDR7 6L基板\cite{SimmtechGDDR}。其trace width/space为$25/30~\mu\mathrm{m}$，因此$\phi=25/(25+30)=0.454545$。采用每层\SI{12}{\micro\metre} Cu的显式D级输入，代入式\eqref{eq:substrate-xy}--\eqref{eq:substrate-z}：
+\begin{align}
+  \kxyz_{\mathrm{GDDR6\ sub}}&=(30.7031,30.7031,0.4102),\\
+  \kxyz_{\mathrm{GDDR7\ sub}}&=(49.0137,49.0137,0.4685)~\unitk.
+\end{align}
+旧模型相当于把每个铜层视作100\%连续铜平面，其面内值为
+\begin{equation*}
+  k_{xy,\mathrm{old}}=68.9~\unitk\ \text{(GDDR6)},\qquad
+  110.2~\unitk\ \text{(GDDR7)}.
+\end{equation*}
+加入公开trace覆盖率后，$k_{xy}$降低约55\%；$k_z$主要由BT介质串联控制，变化很小。
+
+\subsection{BGA standoff}
+
+GDDR6机械图给出180 balls、约\SI{0.47}{mm}球径和\SI{0.34}{mm}高度\cite{MicronGDDR6}；GDDR7采用266 balls，球径缺失时沿用\SI{0.47}{mm}、高度采用\SI{0.30}{mm}。球面积分数与体材料上界为
+\begin{align}
+  f_b&=\frac{N_b\pi(d_b/2)^2}{A_{pkg}},\\
+  k_{z,\mathrm{bulk}}&=f_bk_{SAC}+(1-f_b)k_{air}.
+\end{align}
+Johnson和Eyman指出，BGA焊盘/基板的热收缩使简单面积法高估约一个数量级，并报告典型阵列$k_z$约\SIrange{0.6}{1.4}{\tcond}\cite{JohnsonEyman1998}。本模型把名义$R''_{c,BGA}=3.0\times10^{-4}\,\unitr$串联进standoff层；面内按未灌封阵列取空气值。结果为
+\begin{align}
+  \kxyz_{\mathrm{GDDR6\ BGA}}&=(0.0275,0.0275,1.0257),\\
+  \kxyz_{\mathrm{GDDR7\ BGA}}&=(0.0275,0.0275,0.9410).
+\end{align}
+该$R''_c$包含封装侧焊盘收缩，不应与系统模型中另行加入的完整PCB热阻重复计算。
+
+\section{LPDDR5X与LPDDR6}
+
+\subsection{Two-die tier}
+
+LPDDR5X每个z-tier含两颗$6.50\times5.60~\mathrm{mm^2}$ Si die，LPDDR6前瞻模型含两颗$6.25\times7.00~\mathrm{mm^2}$ die。对应面积分数为0.419355与0.504032。在$56\times62$网格上求解式\eqref{eq:cell-problem}：
+
+\begin{table}[htbp]
+\centering
+\caption{LPDDR active/source层校准结果}
+\begin{tabular}{lrrrr}
+\toprule
+模型 & $f_{\mathrm{Si}}$ & $k_x$ & $k_y$ & $k_z$ \\
+\midrule
+LPDDR5X & 0.419355 & 6.6486 & 1.5886 & 55.0271 \\
+LPDDR6 & 0.504032 & 5.6611 & 1.9801 & 65.9606 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+LPDDR5X旧值$k_x=11.677$只代表穿过两颗die中心带的串联路径；有限体积结果还包含上下EMC区与二维热流重分配，因此更适合赋给覆盖整个package plane的单一source材料。
+
+\subsection{DAF、substrate与BGA}
+
+\SI{10}{\micro\metre}绝缘DAF采用\SI{0.30}{\tcond}。公开stacked-package资料同时给出这一低导热DAF基线与EMC \SI{0.88}{\tcond}\cite{KimYooPatent2026}；导电填料DAF可以达到更高值，但在没有目标产品证据时不能默认采用。
+
+LPDDR公开机械图能够约束496-ball尺寸\cite{MicronLPDDR5}，但没有铜叠层。名义假设为100~$\mu\mathrm{m}$ substrate、2层$12~\mu\mathrm{m}$ Cu、$\phi=0.35$。由式\eqref{eq:substrate-xy}--\eqref{eq:substrate-z}得到
+\begin{equation}
+  \kxyz_{\mathrm{LPDDR\ sub}}=(33.0714,33.0714,0.4470)~\unitk.
+\end{equation}
+LPDDR5X的496颗\SI{0.27}{mm}球及LPDDR6的518颗前瞻球采用同一$R''_{c,BGA}$，得到
+\begin{align}
+  \kxyz_{\mathrm{LPDDR5X\ BGA}}&=(0.0275,0.0275,0.6230),\\
+  \kxyz_{\mathrm{LPDDR6\ BGA}}&=(0.0275,0.0275,0.6247)~\unitk.
+\end{align}
+LPDDR6尚无量产mechanical drawing，因此球径、高度、基板铜覆盖率和$R''_c$均为D级输入。
+
+\section{HBM3E与HBM4}
+
+\subsection{直接实测锚点}
+
+Chalise和Cahill对商用HBM2进行3$\omega$与X-ray tomography测量，得到memory layer面内$k=140\pm13~\unitk$、polymer/solder bump层贯穿$k\approx2~\unitk$、整颗器件$k_{xy}=100\pm10~\unitk$和$k_z=7\pm0.7~\unitk$\cite{ChaliseCahill2023}。这是本次校准最重要的封装级实测锚点。由于交付模型未显式表示完整BEOL、每个微接触和IMC，bond材料必须承担这些串联热阻，不能只表示NCF/MUF与SAC的体材料混合。
+
+\subsection{HBM3E bond反演与HBM4迁移}
+
+对HBM3E 720~$\mu\mathrm{m}$堆栈，Si、TSV-Si与active层的名义总面积热阻为
+\begin{equation}
+  R''_{other}=4.90~\mu\mathrm{m\,m\,K\,W^{-1}}.
+\end{equation}
+8个bond总厚度为$8\times15=120~\mu\mathrm{m}$。强制堆栈满足实测$k_{z,stack}=7~\unitk$，得到
+\begin{equation}
+  k_{z,bond}=\frac{120}{720/7-R''_{other}}=1.225~\unitk.
+  \label{eq:hbm-bond-calibration}
+\end{equation}
+HBM4的12个bond沿用相同15~$\mu\mathrm{m}$层等效值；这是把HBM2面积热阻迁移到Advanced MR-MUF的C/D级中心值。面内使用式\eqref{eq:maxwell}，bump面积分数取X-ray约束的$f_b=0.20$：
+\begin{align}
+  \kxyz_{\mathrm{HBM3E\ bond}}&=(0.2991,0.2991,1.2250),\\
+  \kxyz_{\mathrm{HBM4\ bond}}&=(1.3037,1.3037,1.2250)~\unitk.
+\end{align}
+HBM4较高的$k_{xy}$来自MUF代理相对NCF更高的基体热导率；$k_z$由界面/BEOL主导，因此没有按体材料比例放大。
+
+\subsection{TSV-Si与active层}
+
+HBM3E使用5~$\mu\mathrm{m}$ TSV直径和55~$\mu\mathrm{m}$ pitch的代表性组合\cite{OhbaEtAl2022}：
+\begin{equation}
+  f_{TSV}=\frac{\pi(2.5)^2}{55^2}=0.00649089.
+\end{equation}
+HBM4在相同窗口中取两倍Cu面积分数0.0129818，反映2048 I/O相对1024 I/O的D级敏感性假设。式\eqref{eq:maxwell}与式\eqref{eq:parallel}给出
+\begin{align}
+  \kxyz_{\mathrm{HBM3E\ TSV-Si}}&=(130.847,130.847,131.688),\\
+  \kxyz_{\mathrm{HBM4\ TSV-Si}}&=(131.699,131.699,133.375)~\unitk.
+\end{align}
+
+active/source层包含$10.5\times10.5~\mathrm{mm^2}$ Si核心和\SI{250}{\micro\metre} EMC环带。其$f_{Si}=10.5^2/11^2=0.911157$；在$44\times44$网格上得到
+\begin{equation}
+  \kxyz_{\mathrm{HBM\ active}}=(16.5659,16.5659,118.5286)~\unitk.
+\end{equation}
+
+\subsection{堆栈级闭合检查}
+
+将每层的$t_i/k_{z,i}$串联，校准后的名义贯穿结果为
+\begin{equation}
+  k_{z,\mathrm{HBM3E\ 8H}}=\SI{6.99}{\tcond},\qquad
+  k_{z,\mathrm{HBM4\ 12H}}=\SI{4.75}{\tcond}.
+\end{equation}
+前者与$(7\pm0.7)~\unitk$实测目标闭合；后者因同一高度内bond数量增加而下降，方向上符合高堆叠层数加剧热瓶颈的公开FEA结论\cite{SongYoon2025}。HBM4数值不是直接实测，应保留bond面积热阻与真实stack cross-section的敏感性分析。
+
+\section{HBF 16-high NAND堆栈}
+
+\subsection{NAND array与Si backing}
+
+Sandisk HBF fact sheet确认16-die CBA NAND堆叠及256~Gb/die产品路线\cite{SandiskHBFFactSheet}；公开BiCS8资料给出218-layer CBA NAND\cite{SandiskBiCS8}。本文把218层作为公开工艺代理，而不把它解释为384~GB研究配置的精确die截面。
+
+V-NAND公开单元模型给出20~nm W word-line、20~nm SiO$_2$ ILD、$k_W=40$和$k_{SiO_2}=1.4~\unitk$\cite{KimRyuLee2025}。阵列厚度及正交等效为
+\begin{align}
+  t_{array}&=218(20+20)~\mathrm{nm}=8.72~\mu\mathrm{m},\\
+  k_{xy,array}&=\frac{20(40)+20(1.4)}{40}=20.70~\unitk,\\
+  k_{z,array}&=\frac{40}{20/40+20/1.4}=2.705~\unitk.
+\end{align}
+33~$\mu\mathrm{m}$ passive core层余下24.28~$\mu\mathrm{m}$视为Si backing。面内并联、贯穿串联：
+\begin{align}
+  k_{xy,core}&=\frac{24.28(130)+8.72(20.70)}{33}=101.118,\\
+  k_{z,core}&=\frac{33}{24.28/130+8.72/2.705}=9.677~\unitk.
+  \label{eq:nand-core}
+\end{align}
+因此HBF core die不再被错误地设为各向同性bulk Si。
+
+\subsection{TSV-NAND、base die和bond}
+
+HBF没有公开生产TSV map，中央$7\times9~\mathrm{mm^2}$窗口暂取$f_{TSV}=0.0129818$。把式\eqref{eq:maxwell}和式\eqref{eq:parallel}应用于式\eqref{eq:nand-core}的matrix：
+\begin{equation}
+  \kxyz_{\mathrm{TSV-NAND}}=(102.674,102.674,14.615)~\unitk.
+\end{equation}
+base/logic die不是NAND阵列，故单独使用Si matrix的
+\begin{equation}
+  \kxyz_{\mathrm{TSV-Si\ base}}=(131.699,131.699,133.375)~\unitk.
+\end{equation}
+模型通过两个不同layout明确区分core与base，避免把NAND低$k_z$误施加到logic die，或反向把bulk Si误施加到NAND array。
+
+HBF bond厚度为10~$\mu\mathrm{m}$。若未解析界面/BEOL的面积热阻沿用HBM校准值，则
+\begin{equation}
+  k_{z,HBF\ bond}=\frac{10}{15/1.225}=0.8167~\unitk.
+\end{equation}
+面内MUF/SAC Maxwell结果为1.3037~$\unitk$，故
+\begin{equation}
+  \kxyz_{\mathrm{HBF\ bond}}=(1.3037,1.3037,0.8167)~\unitk.
+\end{equation}
+完整50层模型的名义串联结果为
+\begin{equation}
+  k_{z,\mathrm{HBF\ 16H}}=\SI{3.18}{\tcond}.
+\end{equation}
+它低于HBM4的\SI{4.75}{\tcond}，主要由16个bond以及NAND array的低贯穿热导率共同造成；该比较是模型内部一致性检查，不是HBF产品测量声明。
+
+\section{最终参数汇总}
+
+\small
+\begin{longtable}{p{3.1cm}p{3.1cm}rrr p{3.0cm}}
+\caption{写入3D-ICE前的SI热导率名义值}\label{tab:all-results}\\
+\toprule
+模型 & 材料/等效层 & $k_x$ & $k_y$ & $k_z$ & 等级/备注 \\
+\midrule
+\endfirsthead
+\toprule
+模型 & 材料/等效层 & $k_x$ & $k_y$ & $k_z$ & 等级/备注 \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+全部 & Silicon & 130.000 & 130.000 & 130.000 & B/C，320 K \\
+全部 & EMC & 0.880 & 0.880 & 0.880 & B/D \\
+GDDR6 & Active & 2.3265 & 2.1687 & 57.8081 & C \\
+GDDR7 & Active & 1.8922 & 6.0459 & 64.8251 & C/D \\
+GDDR6/7 & FC bump/UF & 0.8790 & 0.8790 & 4.5639 & C/D \\
+GDDR6 & 4L substrate & 30.7031 & 30.7031 & 0.4102 & C \\
+GDDR7 & 6L substrate & 49.0137 & 49.0137 & 0.4685 & C \\
+GDDR6 & BGA & 0.0275 & 0.0275 & 1.0257 & C/D \\
+GDDR7 & BGA & 0.0275 & 0.0275 & 0.9410 & D \\
+LPDDR5X & Active tier & 6.6486 & 1.5886 & 55.0271 & C \\
+LPDDR6 & Active tier & 5.6611 & 1.9801 & 65.9606 & C/D \\
+LPDDR5X/6 & DAF & 0.3000 & 0.3000 & 0.3000 & B/D \\
+LPDDR5X/6 & Substrate & 33.0714 & 33.0714 & 0.4470 & D \\
+LPDDR5X & BGA & 0.0275 & 0.0275 & 0.6230 & C/D \\
+LPDDR6 & BGA & 0.0275 & 0.0275 & 0.6247 & D \\
+HBM3E/4 & Active & 16.5659 & 16.5659 & 118.5286 & C \\
+HBM3E & TSV-Si & 130.8466 & 130.8466 & 131.6876 & C/D \\
+HBM4 & TSV-Si & 131.6987 & 131.6987 & 133.3753 & D \\
+HBM3E & NCF/bump/\allowbreak BEOL & 0.2991 & 0.2991 & 1.2250 & B/C \\
+HBM4 & MR-MUF/bump/\allowbreak BEOL & 1.3037 & 1.3037 & 1.2250 & C/D \\
+HBF & NAND core & 101.1183 & 101.1183 & 9.6773 & C/D \\
+HBF & TSV-NAND & 102.6745 & 102.6745 & 14.6145 & D \\
+HBF & TSV-Si base & 131.6987 & 131.6987 & 133.3753 & D \\
+HBF & CMOS active & 16.5659 & 16.5659 & 118.5286 & C/D \\
+HBF & 10 $\mu\mathrm{m}$ bump/MUF & 1.3037 & 1.3037 & 0.8167 & C/D \\
+\end{longtable}
+\normalsize
+
+\section{非active层体积热容校准}
+
+本节仅修改非active材料。以下active/source热容保持原值：GDDR6为1.616、GDDR7为1.61387、LPDDR5X为1.61174、LPDDR6为1.61411、HBM及HBF CMOS active为1.62551 MJ/(m$^3$K)。这些值既不进入本轮公式，也不作为热容校准通过项。
+
+patterned-Cu基板的有效铜体积分数为
+\begin{equation}
+  f_{Cu}=\frac{Nt_{Cu}\phi}{t_s}.
+  \label{eq:cv-substrate-cu}
+\end{equation}
+GDDR6、GDDR7与LPDDR分别得到$f_{Cu}=0.077922$、0.124913与0.084000。代入式\eqref{eq:cv-volume-average}即可得到1.74416、1.83109与1.75540 MJ/(m$^3$K)。旧GDDR值仍按无pattern折减的整层Cu计算，LPDDR旧值则只包含BT，因此均与热导率模型使用的铜几何不一致。
+
+GDDR Cu-pillar层先按厚度计算柱内与柱外热容：
+\begin{align}
+  C_{v,m}&=\frac{43C_{v,EMC}+5C_{v,PI}}{48}=1.51792,\\
+  C_{v,c}&=\frac{30C_{v,Cu}+3C_{v,Ni}+10C_{v,SAC}+5C_{v,Cu}}{48}
+          =3.12188.
+\end{align}
+再以$f_b=0.151085$混合，得到1.76025 MJ/(m$^3$K)。BGA、TSV与HBM bond分别使用对应的ball/TSV/bump面积分数作体积混合。
+
+HBF NAND array采用等厚W/SiO$_2$代理：
+\begin{equation}
+  C_{v,array}=\frac{2.580+1.606}{2}=2.093~\mathrm{MJ/(m^3K)}.
+\end{equation}
+与24.28~$\mu$m Si backing和8.72~$\mu$m array按厚度混合后，$C_{v,NAND}=1.81120$ MJ/(m$^3$K)；再加入1.29818\% Cu TSV得到1.83248 MJ/(m$^3$K)。
+
+\small
+\begin{longtable}{p{2.8cm}p{3.3cm}rrp{3.1cm}}
+\caption{非active材料体积热容修正}\label{tab:cv-results}\\
+\toprule
+模型 & 材料/等效层 & 旧值 & 校准值 & 依据/状态 \\
+\midrule
+\endfirsthead
+\toprule
+模型 & 材料/等效层 & 旧值 & 校准值 & 依据/状态 \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+全部 & Silicon & 1.62800 & 1.71000 & NIST，320 K \\
+全部 & EMC & 1.60000 & 1.52000 & PBGA $\rho c_p$基线 \\
+GDDR6/7 & FC bump/UF & 1.62266 & 1.76025 & 金属柱/聚合物基体 \\
+GDDR6 & 4L substrate & 1.91714 & 1.74416 & 7.792\%有效Cu \\
+GDDR7 & 6L substrate & 2.10840 & 1.83109 & 12.491\%有效Cu \\
+GDDR6 & BGA & 0.325302 & 0.318770 & SAC305/air \\
+GDDR7 & BGA & 0.480724 & 0.470541 & SAC305/air \\
+LPDDR5X/6 & DAF & 1.50000 & 1.50000 & D级中心值，保留 \\
+LPDDR5X/6 & Substrate & 1.60000 & 1.75540 & 8.4\%有效Cu \\
+LPDDR5X & BGA & 0.286278 & 0.280663 & SAC305/air \\
+LPDDR6 & BGA & 0.298975 & 0.293062 & SAC305/air \\
+HBM3E & TSV-Si & 1.63983 & 1.72129 & 0.6491\% Cu/Si \\
+HBM4 & TSV-Si & 1.65165 & 1.73259 & 1.2982\% Cu/Si \\
+HBM3E & NCF/bump & 1.53142 & 1.43800 & 20\% SAC/80\% NCF \\
+HBM4 & MR-MUF/bump & 1.61885 & 1.55800 & 20\% SAC/80\% MUF \\
+HBF & NAND core & 1.62800 & 1.81120 & Si+W/SiO$_2$ array \\
+HBF & TSV-NAND & 1.65165 & 1.83248 & NAND+1.2982\% Cu \\
+HBF & TSV-Si base & 1.65165 & 1.73259 & Si+1.2982\% Cu \\
+HBF & microbump/MUF & 1.61885 & 1.55800 & 20\% SAC/80\% MUF \\
+\end{longtable}
+\normalsize
+
+热容修正不会改变稳态温度。若热阻保持不变，某一主导热容偏差$\delta C/C$通常会以相近量级传播到相关时间常数$\tau\sim R_{th}C_{th}$；多层模型的精确传播仍需瞬态灵敏度或实测结构函数验证。
+
+\section{不确定性与建议扫描范围}
+
+名义值不应掩盖缺失资料。表\ref{tab:sensitivity}给出优先扫描项；区间端点不是统计置信区间，而是公开信息不足时的工程包络。
+
+\begin{table}[H]
+\centering
+\caption{主要不确定性输入及其传播结果}
+\label{tab:sensitivity}
+\small
+\begin{tabularx}{\textwidth}{p{3.4cm}p{3.6cm}X}
+\toprule
+输入 & 建议范围 & 对关键输出的影响 \\
+\midrule
+Si参考温度 & 300--373 K & $k_{Si}$约143--105 $\unitk$；所有Si、TSV-Si及active的分量应重算。\\
+Si $C_v(T)$ & 1.64--1.87 MJ/(m$^3$K) & 覆盖约300--373 K；320 K名义值1.71。\\
+EMC/DAF/NCF $C_v$ & 名义值$\pm15$--25\% & 专有填料与固化度未知；主要影响短时升温和层间时间常数。\\
+GDDR trace覆盖率$\phi$ & 0.25--0.65 & GDDR6 $k_{xy,s}$约17.04--43.76；GDDR7约27.11--69.94 $\unitk$，$k_z$变化小。\\
+LPDDR trace覆盖率$\phi$ & 0.20--0.50 & $k_{xy,s}$约19.04--47.10 $\unitk$；$k_z$约0.447 $\unitk$。\\
+BGA $R''_c$ & $(1.5$--$6.0)\times10^{-4}\,\unitr$ & GDDR6 $k_z$约1.87--0.54；GDDR7约1.78--0.48；LPDDR约1.17--0.32 $\unitk$。\\
+HBM整机$k_z$实测 & 6.3--7.7 $\unitk$ & 反演HBM bond $k_z$约1.097--1.354 $\unitk$；HBF 10 $\mu\mathrm{m}$ bond约0.731--0.903。\\
+HBF NAND层数代理 & 162--321 layers & 33 $\mu\mathrm{m}$ core的$k_{xy}$约108.54--87.47，$k_z$约12.70--6.73 $\unitk$。\\
+HBF TSV面积分数 & 0.5\%--2.0\% & 主要改变TSV-NAND $k_z$；真实TSV map发布后应直接替换。\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+建议按以下顺序获取实测：
+\begin{enumerate}
+  \item 目标封装的junction-to-case/junction-to-board结构函数或分层面积热阻；
+  \item substrate stack-up、各层铜厚/覆盖率与via map；
+  \item HBM/HBF bond gap、bump面积占比及BEOL厚度；
+  \item HBF core die中NAND array、Si backing和CBA CMOS的实际厚度；
+  \item 温度依赖材料参数及瞬态体积热容。
+\end{enumerate}
+
+\section{实现映射与复现}
+
+校准脚本为\path{examples/thermal_calibration/calibrate_conductivity.py}。运行
+\begin{verbatim}
+python3 examples/thermal_calibration/calibrate_conductivity.py --check
+\end{verbatim}
+会重新执行有限体积、解析热导率和体积热容守恒等效，并逐项读取七个\texttt{model.stk}。热导率乘$10^{-6}$、MJ/(m$^3$K)热容乘$10^{-12}$后，任一非active校准项与文件不一致即失败；active热容明确排除。HBF新增\path{base_tsv_silicon.layout}，用于将base Si/TSV与core NAND/TSV分开。
+
+\begin{table}[htbp]
+\centering
+\caption{模型文件中的主要材料映射}
+\small
+\begin{tabularx}{\textwidth}{p{3.0cm}p{4.2cm}X}
+\toprule
+模型 & 3D-ICE材料名 & 物理含义 \\
+\midrule
+GDDR6/7 & \texttt{FC\_BUMP\_UF\_EQ} & Cu-pillar/Ni/SAC/PI/underfill及接触热阻。\\
+GDDR6/7 & \texttt{PACKAGE\_SUBSTRATE\_EQ} & 4L/6L patterned-Cu正交基板。\\
+LPDDR5X/6 & \texttt{PACKAGE\_SUBSTRATE\_EQ} & 2L、35\% Cu覆盖率的D级WFBGA基板。\\
+HBM3E & \texttt{NCF\_BUMP\_EQ} & NCF/bump/BEOL/interface封装级等效。\\
+HBM4 & \texttt{ADV\_MR\_MUF\_BUMP\_EQ} & MR-MUF/bump/BEOL/interface封装级等效。\\
+HBF core & \texttt{NAND\_CORE\_EQ}, \texttt{TSV\_NAND\_HBF\_EQ} & NAND array+Si backing，无/有TSV。\\
+HBF base & \texttt{SILICON}, \texttt{TSV\_SI\_HBF\_EQ} & logic/base Si matrix，无/有TSV。\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{结论与使用限制}
+
+本次热导率修正解决了过时die几何、完整铜平面假设、离散焊点面积并联和HBF NAND-as-Si等问题；本次热容修正进一步消除了substrate铜覆盖率、Cu/Ni pillar、20\% bump占比及NAND array在储热量上的不一致。校准后，七套模型的非active总热容量与当前几何和统一基础材料表闭合；active热容按用户要求保持原状。
+
+仍需强调：GDDR7与LPDDR6封装细节、HBM4 TSV/MUF、HBF TSV/NAND截面以及EMC/DAF/NCF/MUF目标配方没有公开完整数据，因此这些项属于C/D级工程模型。论文中应将其表述为“literature-constrained effective properties”或“公开资料约束的等效参数”，不能表述为厂商实测材料常数。最终瞬态温度还依赖功耗空间分布、TIM、lid/interposer/PCB和边界条件；产品级热容仍应使用DSC、密度测量或瞬态结构函数反演验证。
+
+\section*{资料与复现声明}
+本文仅使用公开论文、厂商资料、专利和可复现计算。文献检索与初稿整理使用了自动化工具，所有纳入的数值、DOI、公式和模型写入值均在2026年8月23日逐项核验。正式投稿前，作者仍应针对目标期刊格式、最新产品图纸和自有实测数据进行人工复核。
+
+\printbibliography[title={参考文献}]
+
+\end{document}

@@ -1,0 +1,82 @@
+// Integration-ready GDDR6 one-package reference thermal model.
+// Physical target: 16 Gb = 2 GB from two side-by-side 8Gb dies, x32,
+// 12 x 14 mm, nominal 1.1 mm (1.2 mm upper envelope), 180-ball FBGA.
+// The BGA standoff is included; no PCB or package thermal boundary is included.
+// Conductivities are calibrated at about 320 K.  Composite tensors include
+// die-map homogenization and package-interface resistance; see
+// ../../thermal_calibration/thermal_conductivity_calibration.tex.
+
+material SILICON :
+  thermal conductivity 1.30000e-4 ;
+  volumetric heat capacity 1.71000e-12 ;
+
+material EMC :
+  thermal conductivity 8.80000e-7 ;
+  volumetric heat capacity 1.52000e-12 ;
+
+material ACTIVE_LAYER_EQ :
+  thermal conductivity 2.32650e-6, 2.16869e-6, 5.78081e-5 ;
+  volumetric heat capacity 1.61600e-12 ;
+
+material FC_BUMP_UF_EQ :
+  thermal conductivity 8.78989e-7, 8.78989e-7, 4.56393e-6 ;
+  volumetric heat capacity 1.76025e-12 ;
+
+material PACKAGE_SUBSTRATE_EQ :
+  thermal conductivity 3.07031e-5, 3.07031e-5, 4.10182e-7 ;
+  volumetric heat capacity 1.74416e-12 ;
+
+material BGA_SOLDER_AIR_EQ :
+  thermal conductivity 2.75000e-8, 2.75000e-8, 1.02573e-6 ;
+  volumetric heat capacity 3.18770e-13 ;
+
+dimensions :
+  chip length 12000, width 14000 ;
+  cell length 250, width 250 ;
+  non-uniform true ;
+
+// Nominal-height closure: 282 + 148 + 2 + 48 + 280 + 340 = 1100 um.
+// The public mechanical drawing specifies 1.1 +/- 0.1 mm overall height.
+layer TOP_EMC_CAP :
+  height 282 ;
+  material EMC ;
+
+layer DRAM_SILICON_148 :
+  height 148 ;
+  material EMC ;
+  layout "dram_silicon.layout" ;
+
+layer FLIP_CHIP_BUMP_48 :
+  height 48 ;
+  material EMC ;
+  layout "bump_underfill.layout" ;
+
+layer PACKAGE_SUBSTRATE_280 :
+  height 280 ;
+  material PACKAGE_SUBSTRATE_EQ ;
+
+layer BGA_STANDOFF_340 :
+  height 340 ;
+  material BGA_SOLDER_AIR_EQ ;
+
+die DRAM_ACTIVE :
+  source 2 ACTIVE_LAYER_EQ ;
+
+stack:
+  layer GDDR6_TOP_MOLD TOP_EMC_CAP ;
+  layer GDDR6_DIE_BACKSIDE DRAM_SILICON_148 ;
+  die   GDDR6_DIE DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer GDDR6_BUMP_UNDERFILL FLIP_CHIP_BUMP_48 ;
+  layer GDDR6_PACKAGE_SUBSTRATE PACKAGE_SUBSTRATE_280 ;
+  layer GDDR6_BGA_STANDOFF BGA_STANDOFF_340 ;
+
+solver:
+  transient step 0.01, slot 0.01 ;
+  initial temperature 300.0 ;
+  numofcores 1 ;
+
+output:
+  Tflp(GDDR6_DIE, "gddr6_die_avg.txt", average, final) ;
+  Tflpel(GDDR6_DIE.GDDR6_ACTIVE_EQ, "gddr6_die_max.txt", maximum, final) ;
+  Tmap(GDDR6_DIE, "gddr6_die_map.txt", final) ;
+  T3d("gddr6_1pkg.vtk", final) ;

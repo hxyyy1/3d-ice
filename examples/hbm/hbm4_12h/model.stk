@@ -1,0 +1,129 @@
+// Reference thermal model: HBM4 36 GB, 12-high DRAM + one logic/base die.
+// Public architecture: 2048 I/O and 32 channels. The 720 um internal cube
+// height follows the peer-reviewed 12Hi thermal benchmark cited in ../README.md.
+// This is a transparent literature-derived model, not a vendor process deck.
+// Conductivity calibration: ../../thermal_calibration/thermal_conductivity_calibration.tex.
+
+material SILICON :
+  thermal conductivity 1.30000e-4 ;
+  volumetric heat capacity 1.71000e-12 ;
+
+material TSV_SI_HBM4_EQ :
+  thermal conductivity 1.31699e-4, 1.31699e-4, 1.33375e-4 ;
+  volumetric heat capacity 1.73259e-12 ;
+
+material EMC :
+  thermal conductivity 8.80000e-7 ;
+  volumetric heat capacity 1.52000e-12 ;
+
+// Homogenized 10.5 x 10.5 mm Si core plus 250 um EMC perimeter.
+material ACTIVE_LAYER_EQ :
+  thermal conductivity 1.65659e-5, 1.65659e-5, 1.18529e-4 ;
+  volumetric heat capacity 1.62551e-12 ;
+
+material ADV_MR_MUF_BUMP_EQ :
+  thermal conductivity 1.30368e-6, 1.30368e-6, 1.22500e-6 ;
+  volumetric heat capacity 1.55800e-12 ;
+
+dimensions :
+  chip length 11000, width 11000 ;
+  cell length 250, width 250 ;
+  non-uniform true ;
+
+// 154 um passive Si + 2 um active layer reproduces the published 156 um
+// top-die thickness used in the 4Hi/8Hi/12Hi thermal benchmark.
+layer TOP_SILICON_CAP :
+  height 154 ;
+  material SILICON ;
+  layout "top_silicon.layout" ;
+
+layer TSV_SILICON_30 :
+  height 30 ;
+  material SILICON ;
+  layout "tsv_silicon.layout" ;
+
+layer DIE_TO_DIE_BOND :
+  height 15 ;
+  material ADV_MR_MUF_BUMP_EQ ;
+
+die DRAM_ACTIVE :
+  source 2 ACTIVE_LAYER_EQ ;
+
+die LOGIC_ACTIVE :
+  source 2 ACTIVE_LAYER_EQ ;
+
+stack:
+  layer HBM4_D12_CAP TOP_SILICON_CAP ;
+  die   HBM4_D12 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D12_D11 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D11_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D11 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D11_D10 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D10_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D10 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D10_D9 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D9_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D9 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D9_D8 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D8_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D8 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D8_D7 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D7_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D7 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D7_D6 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D6_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D6 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D6_D5 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D5_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D5 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D5_D4 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D4_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D4 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D4_D3 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D3_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D3 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D3_D2 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D2_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D2 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D2_D1 DIE_TO_DIE_BOND ;
+
+  layer HBM4_D1_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_D1 DRAM_ACTIVE floorplan "dram_core.flp" ;
+  layer HBM4_BOND_D1_BASE DIE_TO_DIE_BOND ;
+
+  layer HBM4_BASE_SUBSTRATE TSV_SILICON_30 ;
+  die   HBM4_BASE LOGIC_ACTIVE floorplan "base_die.flp" ;
+
+solver:
+  transient step 0.01, slot 0.01 ;
+  initial temperature 318.15 ;
+  numofcores 1 ;
+
+output:
+  Tflp(HBM4_D12,  "hbm4_d12_avg.txt", average, final) ;
+  Tflp(HBM4_D11,  "hbm4_d11_avg.txt", average, final) ;
+  Tflp(HBM4_D10,  "hbm4_d10_avg.txt", average, final) ;
+  Tflp(HBM4_D9,   "hbm4_d9_avg.txt",  average, final) ;
+  Tflp(HBM4_D8,   "hbm4_d8_avg.txt",  average, final) ;
+  Tflp(HBM4_D7,   "hbm4_d7_avg.txt",  average, final) ;
+  Tflp(HBM4_D6,   "hbm4_d6_avg.txt",  average, final) ;
+  Tflp(HBM4_D5,   "hbm4_d5_avg.txt",  average, final) ;
+  Tflp(HBM4_D4,   "hbm4_d4_avg.txt",  average, final) ;
+  Tflp(HBM4_D3,   "hbm4_d3_avg.txt",  average, final) ;
+  Tflp(HBM4_D2,   "hbm4_d2_avg.txt",  average, final) ;
+  Tflp(HBM4_D1,   "hbm4_d1_avg.txt",  average, final) ;
+  Tflp(HBM4_BASE, "hbm4_base_avg.txt", average, final) ;
+  Tflpel(HBM4_BASE.BASE_ACTIVE_EQ, "hbm4_base_max.txt", maximum, final) ;
+  Tmap(HBM4_D12,  "hbm4_top_map.txt", final) ;
+  Tmap(HBM4_BASE, "hbm4_base_map.txt", final) ;
+  T3d("hbm4_cube.vtk", final) ;

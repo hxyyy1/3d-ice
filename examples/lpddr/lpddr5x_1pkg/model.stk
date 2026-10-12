@@ -1,0 +1,97 @@
+// Integration-ready LPDDR5X one-package reference thermal model.
+// Calibrated reference: 16 GB, eight physical dies in four 2-die z-tiers,
+// 14 x 12.4 x 0.65 mm, 496-ball PoP/WFBGA envelope. No thermal boundary.
+// Conductivity calibration: ../../thermal_calibration/thermal_conductivity_calibration.tex.
+
+material SILICON :
+  thermal conductivity 1.30000e-4 ;
+  volumetric heat capacity 1.71000e-12 ;
+
+material EMC :
+  thermal conductivity 8.80000e-7 ;
+  volumetric heat capacity 1.52000e-12 ;
+
+// Homogenized two-die tier plus surrounding EMC in a 14 x 12.4 mm layer.
+material ACTIVE_LAYER_EQ :
+  thermal conductivity 6.64863e-6, 1.58862e-6, 5.50271e-5 ;
+  volumetric heat capacity 1.61174e-12 ;
+
+material DAF :
+  thermal conductivity 3.00000e-7 ;
+  volumetric heat capacity 1.50000e-12 ;
+
+material PACKAGE_SUBSTRATE_EQ :
+  thermal conductivity 3.30714e-5, 3.30714e-5, 4.47017e-7 ;
+  volumetric heat capacity 1.75540e-12 ;
+
+material BGA_SOLDER_AIR_EQ :
+  thermal conductivity 2.75000e-8, 2.75000e-8, 6.22998e-7 ;
+  volumetric heat capacity 2.80663e-13 ;
+
+dimensions :
+  chip length 14000, width 12400 ;
+  cell length 250, width 200 ;
+  non-uniform true ;
+
+// Height closure: 110 + 4*(2+48) + 4*10 + 100 + 200 = 650 um.
+layer TOP_EMC_CAP :
+  height 110 ;
+  material EMC ;
+
+layer DRAM_SILICON_48 :
+  height 48 ;
+  material EMC ;
+  layout "dram_silicon.layout" ;
+
+layer DIE_ATTACH_10 :
+  height 10 ;
+  material EMC ;
+  layout "daf.layout" ;
+
+layer PACKAGE_SUBSTRATE_100 :
+  height 100 ;
+  material PACKAGE_SUBSTRATE_EQ ;
+
+layer BGA_STANDOFF_200 :
+  height 200 ;
+  material BGA_SOLDER_AIR_EQ ;
+
+die DRAM_ACTIVE :
+  source 2 ACTIVE_LAYER_EQ ;
+
+stack:
+  layer LP5X_TOP_MOLD TOP_EMC_CAP ;
+
+  die   LP5X_D4 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP5X_D4_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP5X_DAF_D4_D3 DIE_ATTACH_10 ;
+
+  die   LP5X_D3 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP5X_D3_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP5X_DAF_D3_D2 DIE_ATTACH_10 ;
+
+  die   LP5X_D2 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP5X_D2_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP5X_DAF_D2_D1 DIE_ATTACH_10 ;
+
+  die   LP5X_D1 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP5X_D1_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP5X_DAF_D1_SUBSTRATE DIE_ATTACH_10 ;
+
+  layer LP5X_PACKAGE_SUBSTRATE PACKAGE_SUBSTRATE_100 ;
+  layer LP5X_BGA_STANDOFF BGA_STANDOFF_200 ;
+
+solver:
+  transient step 0.01, slot 0.01 ;
+  initial temperature 300.0 ;
+  numofcores 1 ;
+
+output:
+  Tflp(LP5X_D4, "lpddr5x_d4_avg.txt", average, final) ;
+  Tflp(LP5X_D3, "lpddr5x_d3_avg.txt", average, final) ;
+  Tflp(LP5X_D2, "lpddr5x_d2_avg.txt", average, final) ;
+  Tflp(LP5X_D1, "lpddr5x_d1_avg.txt", average, final) ;
+  Tflpel(LP5X_D1.DRAM_ACTIVE_EQ, "lpddr5x_d1_max.txt", maximum, final) ;
+  Tmap(LP5X_D4, "lpddr5x_top_map.txt", final) ;
+  Tmap(LP5X_D1, "lpddr5x_bottom_map.txt", final) ;
+  T3d("lpddr5x_1pkg.vtk", final) ;

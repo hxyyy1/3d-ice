@@ -1,0 +1,6 @@
+// The layer default is 0.88 W/(m K) EMC. The package uses two side-by-side
+// dies; each 6.5 x 6.4 mm rectangle is 41.6 mm2.
+
+SILICON :
+  rectangle (2750, 400, 6500, 6400) ;
+  rectangle (2750, 7000, 6500, 6400) ;

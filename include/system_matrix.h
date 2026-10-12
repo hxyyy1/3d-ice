@@ -107,6 +107,8 @@ extern "C"
 
         SuperMatrix SLUMatrix_L ;
 
+        /* Legacy preallocation aliases; NULL on the normal pdgstrf-owned
+           path. The L/U Stores own their arrays and are destroyed once. */
         SystemMatrixCoeff_t *Nzval_L ;
         LUIndex_t *Nzval_colbeg ;
         LUIndex_t *Nzval_colend ;
@@ -166,6 +168,9 @@ extern "C"
      * \param size the dimension of the (square) matrix
      * \param nnz  the number of nonzeroes coeffcients
      * \param threads the number of threads
+     *
+     * L/U storage is allocated by the first factorization, not by build.
+     * On allocation failure the matrix is reset and safe to destroy.
      *
      * \return \c TDICE_SUCCESS if the memory allocation succeded
      * \return \c TDICE_FAILURE if the memory allocation fails

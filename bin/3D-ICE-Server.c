@@ -47,6 +47,7 @@
 #include "stack_file_parser.h"
 #include "stack_description.h"
 #include "thermal_data.h"
+#include "temperature_state.h"
 #include "analysis.h"
 #include "output.h"
 #include "power_trace.h"
@@ -67,6 +68,7 @@ typedef struct
     ServerMode_t mode ;
     char        *stk_file ;
     Quantity_t   server_port ;
+    char        *initial_temperature_file ;
     char        *power_trace_file ;
     char        *output_dir ;
     int          follow_power_trace ;
@@ -305,7 +307,7 @@ static void print_usage (char *exe_name)
         "Usage: \"%s file.stk server_port [--output-dir directory]\"\n",
         exe_name) ;
     fprintf (stderr,
-        "       \"%s file.stk --power-trace trace.txt [--output-dir directory] [--until-minus-one] [--follow] [--poll seconds]\"\n",
+        "       \"%s file.stk --power-trace trace.txt [--output-dir directory] [--initial-temperature-file file] [--until-minus-one] [--follow] [--poll seconds]\"\n",
         exe_name) ;
 }
 
@@ -330,6 +332,7 @@ static void server_options_init (ServerOptions_t *options)
     options->mode                  = SERVER_MODE_SOCKET ;
     options->stk_file              = NULL ;
     options->server_port           = 0u ;
+    options->initial_temperature_file = NULL ;
     options->power_trace_file      = NULL ;
     options->output_dir            = NULL ;
     options->follow_power_trace    = 0 ;
@@ -395,6 +398,16 @@ static Error_t parse_server_options
             }
 
             options->power_trace_file = argv [arg_index] ;
+        }
+        else if (options->mode == SERVER_MODE_LOCAL_TRACE &&
+                 strcmp(argv[arg_index], "--initial-temperature-file") == 0)
+        {
+            if (++arg_index == argc || argv[arg_index][0] == '\0')
+            {
+                fprintf(stderr, "--initial-temperature-file requires a path\n");
+                return TDICE_FAILURE;
+            }
+            options->initial_temperature_file = argv[arg_index];
         }
         else if (options->mode == SERVER_MODE_LOCAL_TRACE &&
                  strcmp (argv [arg_index], "--follow") == 0)
@@ -734,6 +747,12 @@ int main (int argc, char** argv)
 
     /* Checks if all arguments are there **************************************/
 
+    if (argc == 2 && strcmp(argv[1], "--temperature-state-version") == 0)
+    {
+        puts(TDICE_TEMPERATURE_STATE_VERSION);
+        return EXIT_SUCCESS;
+    }
+
     if (parse_server_options (argc, argv, &options) != TDICE_SUCCESS)
 
         return EXIT_FAILURE ;
@@ -779,6 +798,10 @@ int main (int argc, char** argv)
         (&tdata, &stkd.StackElements, stkd.Dimensions, &analysis, &stkd.Materials) ;
 
     if (error != TDICE_SUCCESS)    goto ftd_error ;
+
+    if (options.initial_temperature_file != NULL && load_temperature_state
+        (options.initial_temperature_file, &tdata, stkd.Dimensions) != TDICE_SUCCESS)
+        goto socket_error ;
 
     fprintf (stdout, "done !\n") ;
 

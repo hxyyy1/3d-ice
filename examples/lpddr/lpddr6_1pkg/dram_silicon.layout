@@ -1,0 +1,6 @@
+// The layer default is EMC. Each tier contains two ~43.75 mm2 silicon dies,
+// constrained by the public ~44.5 mm2 first-generation LPDDR6 die area.
+
+SILICON :
+  rectangle (750, 2600, 6250, 7000) ;
+  rectangle (7000, 2600, 6250, 7000) ;

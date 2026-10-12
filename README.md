@@ -7,6 +7,50 @@
 
 To get more information about 3D-ICE, and how to use and install it, please refer to the [3D-ICE_User_Guide](doc/3D-ICE-User_Guide.pdf) in the doc folder. It helps you get started with 3D-ICE and serves as a quick reference later on. Click [here](https://www.epfl.ch/labs/esl/research/open-source-tools/3d-ice/3d-ice-documentation/) if you want to know more about the modeling theory aspects of 3D-ICE.
 
+## Local environment on CentOS 7
+
+A project-local Python environment is installed in `.venv`, backed by the
+standalone Python in `.local/python`. Enable it and the installed GCC 11 toolset
+in each new Bash terminal:
+
+```bash
+source ./env.sh
+python3 --version
+gcc --version
+```
+
+The Python packages are listed in `requirements.txt`. The versions validated on
+this host are recorded in `requirements-centos7.lock`. To restore the packages
+after creating and activating a Python 3.11 virtual environment, use compatible
+binary wheels and build `gdspy` with GCC:
+
+```bash
+python3 -m pip install --only-binary=:all: -c requirements-centos7.lock \
+  numpy matplotlib shapely rtree wheel setuptools
+python3 -m pip install --no-build-isolation -c requirements-centos7.lock gdspy
+```
+
+The local environment directories are ignored by Git and are not included in a clone.
+
+After moving compiled artifacts from another machine, rebuild them on this host
+to match its glibc. With the local SuperLU sources already extracted:
+
+```bash
+make -B -C superlu_mt-4.0.0/SRC
+make -B -C flex
+make -B -C bison
+make -B -C sources
+make -C lib
+make -B -C bin
+make -C test example3dttest steadyresultstest
+```
+
+OpenBLAS development headers and libraries must be installed. `makefile.def`
+recognizes the CentOS `/usr/include/openblas` header directory; custom locations
+can be supplied with `OPENBLAS_CFLAGS` and `OPENBLAS_LIBS` make variables.
+These core examples do not require OpenModelica or the optional FMI/Python
+heat-sink loaders. The top-level `make test` also builds those optional plugins.
+
 ## Power traces with variable slot durations
 
 The traditional power trace format still uses the fixed `slot` duration from
@@ -186,3 +230,63 @@ You should have received a copy of the GNU General Public License along with 3D-
     June 6, 2011        Version 1.0.2
     October 7, 2010     Version 1.0.1
     September 28, 2010  Version 1.0
+
+## Matrix ownership and variable-step cleanup
+
+`system_matrix_build` allocates A, permutation arrays, and statistics. The
+first `pdgstrf` call allocates L/U; their SCP/NCP Stores own those arrays.
+Destroying or replacing factors uses `Destroy_SuperNode_SCP` and
+`Destroy_CompCol_NCP`. A and its permuted wrapper share data and continue
+using their distinct wrapper-only destruction paths. Failed construction
+resets the matrix; destruction is safe before factorization and on retry.
+The timestep, power trace, temperature vector, thermal coefficients, ordering
+policy, and numerical solver are unchanged.
+
+The bundled dependency also needs
+`patches/superlu_mt-4.0.0-empty-ordering-cleanup.patch`, applied by
+`install-superlumt.sh`. It releases the ordering column pointers for an empty
+adjacency graph (e.g. a diagonal matrix). For an existing unpatched checkout,
+apply the patch from inside `superlu_mt-4.0.0`, rebuild `SRC`, then relink the
+3D-ICE binaries. Do not add a second free of `map_in_sup`: `ParallelFinalize`
+already frees that map.
+
+Run the allocator-accounting regression (single thread, with allocation
+failure injection, singular-factor cleanup/retry, and refact=YES coverage):
+
+```bash
+source ./env.sh
+make -C test matrixcleanuptest
+```
+
+`test/ThermalCleanupRegression.c` can be linked separately against baseline
+and repaired libraries. It writes every cell temperature as native doubles
+at each slot boundary for exact comparison. Arguments are
+`stack output.bin fixed|variable|steady steps [power.ptrace]`; set
+`ICE_TEST_THREADS` to override its default single solver thread. Transient stacks
+without embedded power values require the last argument. Steady mode should
+use one step. Output locations must be explicitly chosen under Thermal's
+`llm_activity_trace/thermal analysis/` for this project's experiments.
+
+The 2026-10-11 repair evidence and original binaries are retained in
+`../Thermal/llm_activity_trace/thermal analysis/superlu_cleanup_20261011/`.
+
+## Full-grid steady temperature initialization
+
+The local Emulator supports `--temperature-state-file PATH` for steady
+analysis. The local-trace Server supports `--initial-temperature-file PATH`
+to restore that full native temperature vector after mesh construction and
+before its first transient step. This includes passive solid and fluid cells;
+the coolant inlet remains an independent boundary condition.
+
+The versioned text format preserves native double temperatures with 17
+significant digits and checks cell count, geometry/order signature, contiguous
+indices, finite positive Kelvin values, truncation and trailing data. Loading
+does not replace the buffer aliased by SuperLU and does not silently fall back
+to a scalar temperature. Both programs advertise this interface using
+`--temperature-state-version` (`3DICE_TEMPERATURE_STATE_V1`). This is a
+temperature initial condition, not a checkpoint of time, power queues or
+external heat-sink plugin state. Socket mode and reset commands retain their
+existing scalar semantics.
+
+Validation and the focused patch are recorded in the sibling Thermal project:
+`llm_activity_trace/thermal analysis/full_grid_initialization_20261011/README.md`.

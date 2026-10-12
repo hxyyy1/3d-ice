@@ -1,0 +1,8 @@
+// Default layer material is SILICON. These rectangles replace the 250 um
+// perimeter with epoxy molding compound. The top DRAM die has no through TSVs.
+
+EMC :
+  rectangle (0, 0, 11000, 250) ;
+  rectangle (0, 10750, 11000, 250) ;
+  rectangle (0, 250, 250, 10500) ;
+  rectangle (10750, 250, 250, 10500) ;

@@ -1,0 +1,97 @@
+// Integration-ready LPDDR6 one-package forward-reference thermal model.
+// Forward reference: 16 GB from eight 16Gb dies in four 2-die z-tiers,
+// 14 x 12.4 x 0.65 mm, 518-ball envelope. Package geometry remains assumed.
+// Conductivity calibration: ../../thermal_calibration/thermal_conductivity_calibration.tex.
+
+material SILICON :
+  thermal conductivity 1.30000e-4 ;
+  volumetric heat capacity 1.71000e-12 ;
+
+material EMC :
+  thermal conductivity 8.80000e-7 ;
+  volumetric heat capacity 1.52000e-12 ;
+
+// Homogenized two-die tier plus surrounding EMC in a 14 x 12.4 mm layer.
+material ACTIVE_LAYER_EQ :
+  thermal conductivity 5.66113e-6, 1.98007e-6, 6.59606e-5 ;
+  volumetric heat capacity 1.61411e-12 ;
+
+material DAF :
+  thermal conductivity 3.00000e-7 ;
+  volumetric heat capacity 1.50000e-12 ;
+
+material PACKAGE_SUBSTRATE_EQ :
+  thermal conductivity 3.30714e-5, 3.30714e-5, 4.47017e-7 ;
+  volumetric heat capacity 1.75540e-12 ;
+
+material BGA_SOLDER_AIR_EQ :
+  thermal conductivity 2.75000e-8, 2.75000e-8, 6.24731e-7 ;
+  volumetric heat capacity 2.93062e-13 ;
+
+dimensions :
+  chip length 14000, width 12400 ;
+  cell length 250, width 200 ;
+  non-uniform true ;
+
+// Assumed height closure: 110 + 4*(2+48) + 4*10 + 100 + 200 = 650 um.
+layer TOP_EMC_CAP :
+  height 110 ;
+  material EMC ;
+
+layer DRAM_SILICON_48 :
+  height 48 ;
+  material EMC ;
+  layout "dram_silicon.layout" ;
+
+layer DIE_ATTACH_10 :
+  height 10 ;
+  material EMC ;
+  layout "daf.layout" ;
+
+layer PACKAGE_SUBSTRATE_100 :
+  height 100 ;
+  material PACKAGE_SUBSTRATE_EQ ;
+
+layer BGA_STANDOFF_200 :
+  height 200 ;
+  material BGA_SOLDER_AIR_EQ ;
+
+die DRAM_ACTIVE :
+  source 2 ACTIVE_LAYER_EQ ;
+
+stack:
+  layer LP6_TOP_MOLD TOP_EMC_CAP ;
+
+  die   LP6_D4 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP6_D4_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP6_DAF_D4_D3 DIE_ATTACH_10 ;
+
+  die   LP6_D3 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP6_D3_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP6_DAF_D3_D2 DIE_ATTACH_10 ;
+
+  die   LP6_D2 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP6_D2_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP6_DAF_D2_D1 DIE_ATTACH_10 ;
+
+  die   LP6_D1 DRAM_ACTIVE floorplan "dram_active.flp" ;
+  layer LP6_D1_SUBSTRATE DRAM_SILICON_48 ;
+  layer LP6_DAF_D1_SUBSTRATE DIE_ATTACH_10 ;
+
+  layer LP6_PACKAGE_SUBSTRATE PACKAGE_SUBSTRATE_100 ;
+  layer LP6_BGA_STANDOFF BGA_STANDOFF_200 ;
+
+solver:
+  transient step 0.01, slot 0.01 ;
+  initial temperature 300.0 ;
+  numofcores 1 ;
+
+output:
+  Tflp(LP6_D4, "lpddr6_d4_avg.txt", average, final) ;
+  Tflp(LP6_D3, "lpddr6_d3_avg.txt", average, final) ;
+  Tflp(LP6_D2, "lpddr6_d2_avg.txt", average, final) ;
+  Tflp(LP6_D1, "lpddr6_d1_avg.txt", average, final) ;
+  Tflpel(LP6_D1.DRAM_ACTIVE_EQ, "lpddr6_d1_max.txt", maximum, final) ;
+  Tmap(LP6_D4, "lpddr6_top_map.txt", final) ;
+  Tmap(LP6_D1, "lpddr6_bottom_map.txt", final) ;
+  T3d("lpddr6_1pkg.vtk", final) ;
